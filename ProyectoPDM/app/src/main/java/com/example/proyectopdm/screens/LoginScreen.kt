@@ -22,7 +22,7 @@ val UcaBlueLogin = Color(0xFF1f194f)
 
 
 @Composable
-fun LoginScreen() {
+fun LoginScreen(onLoginSuccess: () -> Unit) {
     var carne by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -74,7 +74,7 @@ fun LoginScreen() {
             Spacer(modifier = Modifier.height(40.dp))
 
             Button(
-                onClick = { /* Mas adelante conectaremos esto con Room */ },
+                onClick = { onLoginSuccess() },
                 modifier = Modifier.width(180.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color.White,

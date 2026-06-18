@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.proyectopdm.screens.LoginScreen
+import com.example.proyectopdm.screens.MainScreen
 import com.example.proyectopdm.screens.SplashScreen
 
 @Composable
@@ -22,7 +23,14 @@ fun NavGraph() {
             })
         }
         composable("login") {
-            LoginScreen()
+            LoginScreen(onLoginSuccess = {
+                navController.navigate("main") {
+                    popUpTo("login") { inclusive = true }
+                }
+            })
+        }
+        composable("main") {
+            MainScreen()
         }
     }
 }
