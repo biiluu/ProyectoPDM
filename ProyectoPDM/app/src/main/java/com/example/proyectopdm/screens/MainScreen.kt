@@ -11,7 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 
+@Preview
 @Composable
 fun MainScreen() {
     var selectedItem by remember { mutableIntStateOf(0) }
@@ -36,7 +38,7 @@ fun MainScreen() {
                         selected = selectedItem == index,
                         onClick = { selectedItem = index },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF1f194f),
+                            selectedIconColor = Color.Blue,
                             unselectedIconColor = Color.Gray,
                             selectedTextColor = Color(0xFF1f194f),
                             unselectedTextColor = Color.Gray,
