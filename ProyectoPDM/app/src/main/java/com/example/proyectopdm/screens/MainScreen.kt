@@ -11,11 +11,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 
-@Preview
 @Composable
-fun MainScreen() {
+fun MainScreen(carnet: String, onLogout: () -> Unit) {
     var selectedItem by remember { mutableIntStateOf(0) }
     val items = listOf("Inicio", "Explorar", "Reservas", "Perfil")
     val icons = listOf(
@@ -38,7 +36,7 @@ fun MainScreen() {
                         selected = selectedItem == index,
                         onClick = { selectedItem = index },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.Blue,
+                            selectedIconColor = Color(0xFF1f194f),
                             unselectedIconColor = Color.Gray,
                             selectedTextColor = Color(0xFF1f194f),
                             unselectedTextColor = Color.Gray,
@@ -54,7 +52,7 @@ fun MainScreen() {
                 0 -> InicioScreen()
                 1 -> ExplorarScreen()
                 2 -> ReservasScreen()
-                3 -> PerfilScreen()
+                3 -> PerfilScreen(carnet = carnet, onLogout = onLogout)
             }
         }
     }

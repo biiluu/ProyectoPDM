@@ -8,9 +8,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,11 +21,23 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyectopdm.viewmodel.ProfileViewModel
 
 @Composable
-fun PerfilScreen() {
+fun PerfilScreen(
+    carnet: String,
+    onLogout: () -> Unit,
+    viewModel: ProfileViewModel = viewModel()
+) {
     val darkBlue = Color(0xFF1D3354)
     val lightGray = Color(0xFFE9EDF0)
+
+    LaunchedEffect(carnet) {
+        viewModel.loadUser(carnet)
+    }
+
+    val user = viewModel.user
 
     Column(
         modifier = Modifier
@@ -63,8 +77,17 @@ fun PerfilScreen() {
                             modifier = Modifier.fillMaxSize()
                         ) {
                             Box(contentAlignment = Alignment.Center) {
+                                val initials = if (user != null && user.name.isNotEmpty()) {
+                                    user.name.split(" ")
+                                        .filter { it.isNotEmpty() }
+                                        .take(2)
+                                        .map { it[0] }
+                                        .joinToString("")
+                                        .uppercase()
+                                } else ".."
+
                                 Text(
-                                    text = "JS",
+                                    text = initials,
                                     color = Color.White,
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold
@@ -77,18 +100,18 @@ fun PerfilScreen() {
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Javier Salamanca",
+                    text = user?.name ?: "Cargando...",
                     color = Color.White,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Carnet  00056824",
+                    text = "Carnet ${user?.carnet ?: carnet}",
                     color = Color.White.copy(alpha = 0.6f),
                     fontSize = 14.sp
                 )
                 Text(
-                    text = "Estudiante · Ingeniería en Sistemas",
+                    text = "Estudiante · ${user?.career ?: ""}",
                     color = Color.White.copy(alpha = 0.8f),
                     fontSize = 14.sp
                 )
@@ -113,7 +136,6 @@ fun PerfilScreen() {
                 label = "Horas reservadas",
                 value = "0 Hrs"
             )
-            Spacer(modifier = Modifier.height(8.dp))
             ProfileStatItem(
                 icon = Icons.Default.AccountBalance,
                 label = "Edificio favorito",
@@ -130,6 +152,26 @@ fun PerfilScreen() {
             ProfileMenuItem(label = "Ayuda y soporte")
             Spacer(modifier = Modifier.height(8.dp))
             ProfileMenuItem(label = "Acerca de")
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Logout Button
+            Button(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFB00020),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = "Cerrar Sesión"
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Cerrar Sesión")
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
         }

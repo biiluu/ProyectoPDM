@@ -12,20 +12,22 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyectopdm.R
+import com.example.proyectopdm.viewmodel.LoginViewModel
 
 val TextFieldBg = Color(0xFFE8E4EB)
 val UcaBlueLogin = Color(0xFF1f194f)
 
-
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
-    var carne by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-
+fun LoginScreen(
+    onLoginSuccess: (String) -> Unit,
+    viewModel: LoginViewModel = viewModel()
+) {
     Box(modifier = Modifier.fillMaxSize().background(UcaBlueLogin)) {
         Image(
             painter = painterResource(id = R.drawable.logo_uca),
@@ -53,35 +55,57 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             Spacer(modifier = Modifier.height(40.dp))
 
             TextField(
-                value = carne,
-                onValueChange = { carne = it },
+                value = viewModel.carne,
+                onValueChange = { 
+                    viewModel.carne = it
+                    viewModel.errorMessage = null
+                },
                 label = { Text("Carnet") },
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
-                colors = TextFieldDefaults.colors(unfocusedContainerColor = TextFieldBg)
+                colors = TextFieldDefaults.colors(unfocusedContainerColor = TextFieldBg),
+                enabled = !viewModel.isLoading
             )
 
             Spacer(modifier = Modifier.height(15.dp))
 
             TextField(
-                value = password,
-                onValueChange = { password = it },
+                value = viewModel.password,
+                onValueChange = { 
+                    viewModel.password = it
+                    viewModel.errorMessage = null
+                },
                 label = { Text("Contraseña") },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)),
-                colors = TextFieldDefaults.colors(unfocusedContainerColor = TextFieldBg)
+                colors = TextFieldDefaults.colors(unfocusedContainerColor = TextFieldBg),
+                enabled = !viewModel.isLoading
             )
+
+            if (viewModel.errorMessage != null) {
+                Text(
+                    text = viewModel.errorMessage!!,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            Button(
-                onClick = { onLoginSuccess() },
-                modifier = Modifier.width(180.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = UcaBlueLogin
-                )
-            ) {
-                Text("Iniciar Sesión")
+            if (viewModel.isLoading) {
+                CircularProgressIndicator(color = Color.White)
+            } else {
+                Button(
+                    onClick = { viewModel.onLogin(onLoginSuccess) },
+                    modifier = Modifier.width(180.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = UcaBlueLogin
+                    )
+                ) {
+                    Text("Iniciar Sesión")
+                }
             }
         }
     }
