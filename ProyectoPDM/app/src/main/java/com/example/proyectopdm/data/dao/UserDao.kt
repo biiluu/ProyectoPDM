@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.example.proyectopdm.data.entities.User
 
 @Dao
@@ -25,4 +26,7 @@ interface UserDao {
 
     @Query("SELECT * FROM users WHERE carnet = :carnet LIMIT 1")
     suspend fun getUserByCarnet(carnet: String): User?
+
+    @Update
+    suspend fun updateUser(user: User)
 }

@@ -4,12 +4,18 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.proyectopdm.data.dao.ReservationDao
+import com.example.proyectopdm.data.dao.StudyRoomDao
 import com.example.proyectopdm.data.dao.UserDao
+import com.example.proyectopdm.data.entities.Reservation
+import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.data.entities.User
 
-@Database(entities = [User::class], version = 5, exportSchema = false)
+@Database(entities = [User::class, StudyRoom::class, Reservation::class], version = 6, exportSchema = false)
 abstract class AppDataBase : RoomDatabase() {
     abstract fun userDao(): UserDao
+    abstract fun studyRoomDao(): StudyRoomDao
+    abstract fun reservationDao(): ReservationDao
 
     companion object {
         @Volatile

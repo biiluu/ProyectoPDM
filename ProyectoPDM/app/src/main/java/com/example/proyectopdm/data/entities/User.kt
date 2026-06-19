@@ -8,5 +8,6 @@ data class User(
     @PrimaryKey val carnet: String,
     val password: String,
     val name: String,
-    val career: String
+    val career: String,
+    val hasAcceptedTerms: Boolean = false
 )

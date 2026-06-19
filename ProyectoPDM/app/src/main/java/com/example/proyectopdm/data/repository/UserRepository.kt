@@ -27,4 +27,8 @@ class UserRepository(private val userDao: UserDao) {
     suspend fun getUserByCarnet(carnet: String): User? {
         return userDao.getUserByCarnet(carnet)
     }
+
+    suspend fun updateUser(user: User) {
+        userDao.updateUser(user)
+    }
 }
