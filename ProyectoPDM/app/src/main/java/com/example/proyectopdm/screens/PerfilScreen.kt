@@ -136,6 +136,7 @@ fun PerfilScreen(
                 label = "Horas reservadas",
                 value = "0 Hrs"
             )
+            Spacer(modifier = Modifier.height(8.dp))
             ProfileStatItem(
                 icon = Icons.Default.AccountBalance,
                 label = "Edificio favorito",
