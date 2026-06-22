@@ -8,13 +8,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.data.AppDataBase
-import com.example.proyectopdm.data.entities.User
+import com.example.proyectopdm.data.repository.StudyRoomRepository
 import com.example.proyectopdm.data.repository.UserRepository
 import com.example.proyectopdm.data.resources.DummyData
 import kotlinx.coroutines.launch
 
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: UserRepository
+    private val userRepository: UserRepository
+    private val studyRoomRepository: StudyRoomRepository
     
     var carne by mutableStateOf("")
     var password by mutableStateOf("")
@@ -22,22 +23,25 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     var isLoading by mutableStateOf(false)
 
     init {
-        val userDao = AppDataBase.getDatabase(application).userDao()
-        repository = UserRepository(userDao)
+        val db = AppDataBase.getDatabase(application)
+        userRepository = UserRepository(db.userDao())
+        studyRoomRepository = StudyRoomRepository(db.studyRoomDao())
         
         // Sincronización forzada con DummyData
         viewModelScope.launch {
             try {
                 Log.d("PDM_DEBUG", "Limpiando base de datos...")
-                repository.deleteAllUsers()
+                userRepository.deleteAllUsers()
+                studyRoomRepository.deleteAllRooms()
                 
-                Log.d("PDM_DEBUG", "Cargando ${DummyData.users.size} usuarios desde DummyData...")
+                Log.d("PDM_DEBUG", "Cargando datos desde DummyData...")
                 DummyData.users.forEach { user ->
-                    repository.insertUser(user)
+                    userRepository.insertUser(user)
                 }
                 
-                val allUsers = repository.getAllUsers()
-                Log.d("PDM_DEBUG", "Sincronización completa. Carnets disponibles: ${allUsers.map { it.carnet }}")
+                studyRoomRepository.insertRooms(DummyData.studyRooms)
+                
+                Log.d("PDM_DEBUG", "Sincronización completa.")
             } catch (e: Exception) {
                 Log.e("PDM_DEBUG", "Error en sincronización: ${e.message}")
             }
@@ -56,7 +60,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         isLoading = true
         viewModelScope.launch {
             Log.d("PDM_DEBUG", "Validando credenciales: Carne='$cleanCarne', Pass='$cleanPassword'")
-            val user = repository.login(cleanCarne, cleanPassword)
+            val user = userRepository.login(cleanCarne, cleanPassword)
             isLoading = false
             
             if (user != null) {

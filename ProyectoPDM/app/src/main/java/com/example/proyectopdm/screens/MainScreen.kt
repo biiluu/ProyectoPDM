@@ -11,10 +11,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.example.proyectopdm.ui.theme.DarkBlue
 
 @Composable
 fun MainScreen(carnet: String, onLogout: () -> Unit) {
     var selectedItem by remember { mutableIntStateOf(0) }
+    var filterFloor by remember { mutableIntStateOf(0) } // 0 means all floors
+    
     val items = listOf("Inicio", "Explorar", "Reservas", "Perfil")
     val icons = listOf(
         Icons.Outlined.Home,
@@ -34,9 +37,12 @@ fun MainScreen(carnet: String, onLogout: () -> Unit) {
                         icon = { Icon(icons[index], contentDescription = item) },
                         label = { Text(item) },
                         selected = selectedItem == index,
-                        onClick = { selectedItem = index },
+                        onClick = { 
+                            selectedItem = index
+                            if (index != 1) filterFloor = 0 // Reset filter if not going to Explore
+                        },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF1f194f),
+                            selectedIconColor = DarkBlue,
                             unselectedIconColor = Color.Gray,
                             selectedTextColor = Color(0xFF1f194f),
                             unselectedTextColor = Color.Gray,
@@ -49,8 +55,14 @@ fun MainScreen(carnet: String, onLogout: () -> Unit) {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedItem) {
-                0 -> InicioScreen()
-                1 -> ExplorarScreen()
+                0 -> InicioScreen(
+                    carnet = carnet,
+                    onFloorClick = { floor: Int ->
+                        filterFloor = floor
+                        selectedItem = 1 // Switch to Explore tab
+                    }
+                )
+                1 -> ExplorarScreen(initialFloor = filterFloor)
                 2 -> ReservasScreen()
                 3 -> PerfilScreen(carnet = carnet, onLogout = onLogout)
             }
