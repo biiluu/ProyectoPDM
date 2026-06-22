@@ -7,9 +7,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.proyectopdm.screens.HelpSupportScreen
 import com.example.proyectopdm.screens.LoginScreen
 import com.example.proyectopdm.screens.MainScreen
 import com.example.proyectopdm.screens.SplashScreen
+import com.example.proyectopdm.screens.PrivacyScreen
 
 @Composable
 fun NavGraph() {
@@ -42,8 +44,15 @@ fun NavGraph() {
                     navController.navigate("login") {
                         popUpTo("main/$carnet") { inclusive = true }
                     }
-                }
+                },
+                navController = navController
             )
+        }
+        composable("privacy") {
+            PrivacyScreen(navController = navController)
+        }
+        composable("help") {
+            HelpSupportScreen(navController = navController)
         }
     }
 }

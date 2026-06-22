@@ -56,7 +56,7 @@ fun ExplorarScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Floor Selector
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -166,7 +166,6 @@ fun ExploreRoomCard(room: StudyRoom) {
                 }
             }
 
-            // Status badge or button
             Button(
                 onClick = { /* Ir a reservar */ },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),

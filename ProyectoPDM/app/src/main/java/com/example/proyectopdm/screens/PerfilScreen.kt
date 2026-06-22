@@ -1,6 +1,7 @@
 package com.example.proyectopdm.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -22,13 +23,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.example.proyectopdm.viewmodel.ProfileViewModel
+
 
 @Composable
 fun PerfilScreen(
     carnet: String,
     onLogout: () -> Unit,
-    viewModel: ProfileViewModel = viewModel()
+    viewModel: ProfileViewModel = viewModel(),
+    navController: NavController
 ) {
     val darkBlue = Color(0xFF1D3354)
     val lightGray = Color(0xFFE9EDF0)
@@ -54,7 +58,7 @@ fun PerfilScreen(
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Avatar circle with initials
+
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -145,18 +149,23 @@ fun PerfilScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Menu Options
+
             ProfileMenuItem(label = "Notificaciones")
             Spacer(modifier = Modifier.height(8.dp))
-            ProfileMenuItem(label = "Privacidad")
+            ProfileMenuItem(
+                label = "Privacidad",
+                onClick = { navController.navigate("privacy") }
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            ProfileMenuItem(label = "Ayuda y soporte")
+            ProfileMenuItem(label = "Ayuda y soporte",
+                onClick = { navController.navigate("help") }
+            )
             Spacer(modifier = Modifier.height(8.dp))
             ProfileMenuItem(label = "Acerca de")
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Logout Button
+
             Button(
                 onClick = onLogout,
                 modifier = Modifier.fillMaxWidth(),
@@ -215,9 +224,11 @@ fun ProfileStatItem(icon: ImageVector, label: String, value: String) {
 }
 
 @Composable
-fun ProfileMenuItem(label: String) {
+fun ProfileMenuItem(label: String, onClick: () -> Unit = {}) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick()},
         shape = RoundedCornerShape(12.dp),
         color = Color.White.copy(alpha = 0.7f)
     ) {

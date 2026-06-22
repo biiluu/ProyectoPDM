@@ -12,9 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.proyectopdm.ui.theme.DarkBlue
+import androidx.navigation.NavController
+
 
 @Composable
-fun MainScreen(carnet: String, onLogout: () -> Unit) {
+fun MainScreen(carnet: String, onLogout: () -> Unit,navController: NavController) {
     var selectedItem by remember { mutableIntStateOf(0) }
     var filterFloor by remember { mutableIntStateOf(0) } // 0 means all floors
     
@@ -39,7 +41,7 @@ fun MainScreen(carnet: String, onLogout: () -> Unit) {
                         selected = selectedItem == index,
                         onClick = { 
                             selectedItem = index
-                            if (index != 1) filterFloor = 0 // Reset filter if not going to Explore
+                            if (index != 1) filterFloor = 0
                         },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = DarkBlue,
@@ -59,12 +61,12 @@ fun MainScreen(carnet: String, onLogout: () -> Unit) {
                     carnet = carnet,
                     onFloorClick = { floor: Int ->
                         filterFloor = floor
-                        selectedItem = 1 // Switch to Explore tab
+                        selectedItem = 1
                     }
                 )
                 1 -> ExplorarScreen(initialFloor = filterFloor)
-                2 -> ReservasScreen()
-                3 -> PerfilScreen(carnet = carnet, onLogout = onLogout)
+                2 -> ReservasScreen(navController = navController, carnet = carnet)
+                3 -> PerfilScreen(carnet = carnet, onLogout = onLogout, navController = navController)
             }
         }
     }
