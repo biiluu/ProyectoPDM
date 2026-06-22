@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,28 +32,35 @@ import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.ui.theme.*
 import com.example.proyectopdm.viewmodel.ProfileViewModel
 import com.example.proyectopdm.viewmodel.StudyRoomViewModel
+import com.example.proyectopdm.viewmodel.TermViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.runtime.setValue
 
 @Composable
 fun InicioScreen(
     carnet: String,
     onFloorClick: (Int) -> Unit,
     profileViewModel: ProfileViewModel = viewModel(),
-    roomViewModel: StudyRoomViewModel = viewModel()
+    roomViewModel: StudyRoomViewModel = viewModel(),
+    termViewModel: TermViewModel = viewModel()
 ) {
     LaunchedEffect(carnet) {
         profileViewModel.loadUser(carnet)
     }
 
     val user = profileViewModel.user
-    val availableRooms by roomViewModel.availableNowRooms.collectAsState()
+    val availableRooms by roomViewModel.rooms.collectAsState()
+
+    var roomForTerms by remember { mutableStateOf<StudyRoom?>(null) }
 
     val currentDate = LocalDate.now().format(
         DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-ES"))
     )
-
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -118,9 +127,11 @@ fun InicioScreen(
         }
 
         // Reservation Card
-        Box(modifier = Modifier
-            .padding(horizontal = 20.dp)
-            .offset(y = (-20).dp)) {
+        Box(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .offset(y = (-20).dp)
+        ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -157,7 +168,7 @@ fun InicioScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             items(availableRooms.take(10)) { room ->
-                RoomCard(room)
+                RoomCard(room = room, onClick = { roomForTerms = room })
             }
         }
 
@@ -175,13 +186,38 @@ fun InicioScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Resumen por niveles
-        FloorSummaryCard(level = 1, description = "3 Salas de estudio", roomsCount = 3, onClick = { onFloorClick(1) })
+        FloorSummaryCard(
+            level = 1,
+            description = "3 Salas de estudio",
+            roomsCount = 3,
+            onClick = { onFloorClick(1) })
         Spacer(modifier = Modifier.height(8.dp))
-        FloorSummaryCard(level = 2, description = "3 Salas y 8 Cubículos individuales", roomsCount = 11, onClick = { onFloorClick(2) })
+        FloorSummaryCard(
+            level = 2,
+            description = "3 Salas y 8 Cubículos individuales",
+            roomsCount = 11,
+            onClick = { onFloorClick(2) })
         Spacer(modifier = Modifier.height(8.dp))
-        FloorSummaryCard(level = 3, description = "4 Salas, Taller Digital y Recreativa", roomsCount = 6, onClick = { onFloorClick(3) })
+        FloorSummaryCard(
+            level = 3,
+            description = "4 Salas, Taller Digital y Recreativa",
+            roomsCount = 6,
+            onClick = { onFloorClick(3) })
 
         Spacer(modifier = Modifier.height(32.dp))
+    }
+
+    if (roomForTerms != null) {
+        TermsBottomSheet(
+            roomName = roomForTerms!!.name,
+            carnet = carnet,
+            termViewModel = termViewModel,
+            onDismiss = { roomForTerms = null },
+            onTermsAccepted = {
+                roomForTerms = null
+            }
+            )
+        }
     }
 }
 
@@ -220,9 +256,12 @@ fun FloorSummaryCard(level: Int, description: String, roomsCount: Int, onClick: 
 }
 
 @Composable
-fun RoomCard(room: StudyRoom) {
+fun RoomCard(room: StudyRoom, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.width(260.dp),
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
         shadowElevation = 2.dp

@@ -64,7 +64,7 @@ fun MainScreen(carnet: String, onLogout: () -> Unit,navController: NavController
                         selectedItem = 1
                     }
                 )
-                1 -> ExplorarScreen(initialFloor = filterFloor)
+                1 -> ExplorarScreen(carnet = carnet,initialFloor = filterFloor)
                 2 -> ReservasScreen(navController = navController, carnet = carnet)
                 3 -> PerfilScreen(carnet = carnet, onLogout = onLogout, navController = navController)
             }

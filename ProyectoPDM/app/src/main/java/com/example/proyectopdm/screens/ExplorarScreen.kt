@@ -21,14 +21,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.ui.theme.*
 import com.example.proyectopdm.viewmodel.StudyRoomViewModel
+import com.example.proyectopdm.viewmodel.TermViewModel
 
 @Composable
 fun ExplorarScreen(
+    carnet: String,
     initialFloor: Int = 0,
-    viewModel: StudyRoomViewModel = viewModel()
+    viewModel: StudyRoomViewModel = viewModel(),
+    termViewModel: TermViewModel = viewModel()
 ) {
     var selectedFloor by remember { mutableIntStateOf(initialFloor) }
     val rooms by viewModel.rooms.collectAsState()
+
+    var roomForTerms by remember { mutableStateOf<StudyRoom?>(null) }
 
     val filteredRooms = if (selectedFloor == 0) {
         rooms
@@ -78,12 +83,27 @@ fun ExplorarScreen(
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f)
             ) {
                 items(filteredRooms) { room ->
-                    ExploreRoomCard(room)
+                    ExploreRoomCard(
+                        room = room,
+                        onReserveClick = { roomForTerms = room }
+                    )
                 }
             }
+        }
+
+        if (roomForTerms != null) {
+            TermsBottomSheet(
+                roomName = roomForTerms!!.name,
+                carnet = carnet,
+                termViewModel = termViewModel,
+                onDismiss = { roomForTerms = null },
+                onTermsAccepted = {
+                    roomForTerms = null
+                }
+            )
         }
     }
 }
@@ -108,7 +128,7 @@ fun FloorChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun ExploreRoomCard(room: StudyRoom) {
+fun ExploreRoomCard(room: StudyRoom, onReserveClick: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -167,7 +187,7 @@ fun ExploreRoomCard(room: StudyRoom) {
             }
 
             Button(
-                onClick = { /* Ir a reservar */ },
+                onClick = onReserveClick,
                 colors = ButtonDefaults.buttonColors(containerColor = AccentBlue),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
