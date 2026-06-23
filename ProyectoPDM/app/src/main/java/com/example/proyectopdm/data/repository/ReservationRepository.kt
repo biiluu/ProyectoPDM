@@ -13,6 +13,10 @@ class ReservationRepository(private val reservationDao: ReservationDao) {
         return reservationDao.getReservationsByUser(carnet)
     }
 
+    suspend fun getActiveReservationCount(carnet: String): Int {
+        return reservationDao.getActiveReservationCount(carnet)
+    }
+
     fun getActiveReservationsForRoomAndDate(roomId: Int, date: String): Flow<List<Reservation>> {
         return reservationDao.getReservationsForRoomAndDate(roomId, date)
     }
