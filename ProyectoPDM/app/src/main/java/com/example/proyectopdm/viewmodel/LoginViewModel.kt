@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.data.AppDataBase
+import com.example.proyectopdm.data.SessionManager
 import com.example.proyectopdm.data.repository.StudyRoomRepository
 import com.example.proyectopdm.data.repository.UserRepository
 import com.example.proyectopdm.data.resources.DummyData
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
     private val userRepository: UserRepository
     private val studyRoomRepository: StudyRoomRepository
+    private val sessionManager = SessionManager(application)
     
     var carne by mutableStateOf("")
     var password by mutableStateOf("")
@@ -68,6 +70,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             
             if (user != null) {
                 Log.d("PDM_DEBUG", "¡Login exitoso! Bienvenido ${user.name}")
+                sessionManager.saveSession(user.carnet)
                 onLoginSuccess(user.carnet)
             } else {
                 Log.e("PDM_DEBUG", "Login fallido: Credenciales no encontradas en DB")
