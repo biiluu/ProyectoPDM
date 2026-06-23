@@ -39,12 +39,12 @@ fun ReservasScreen(
                 title = {
                     Text(
                         text = "Mis Reservas",
-                        color = Color.White, // ⚪ Letra blanca para el título
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF003A70) // 🟦 Fondo azul para la barra superior
+                    containerColor = Color(0xFF003A70)
                 )
             )
         }
@@ -119,18 +119,18 @@ fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        // Envolvemos todo en un Column para que la franja azul se posicione arriba del Row
+
         Column(modifier = Modifier.fillMaxWidth()) {
 
-            // 🟦 Pedazo superior color azulito
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(12.dp) // Grosor de la franja
-                    .background(Color(0xFF003A70)) // Mismo tono azul elegante
+                    .height(12.dp)
+                    .background(Color(0xFF003A70))
             )
 
-            // El contenido original de la tarjeta (Textos y botón de eliminar)
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
