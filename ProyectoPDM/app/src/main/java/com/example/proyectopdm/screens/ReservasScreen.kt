@@ -1,5 +1,6 @@
 package com.example.proyectopdm.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,8 +28,7 @@ fun ReservasScreen(
     viewModel: ReservationViewModel = viewModel()
 ) {
     val listaReservas by viewModel.getUserReservationsFlow(carnet).collectAsState(initial = emptyList())
-
-    val reservasActivas = listaReservas.filter { it.status != "CANCELADA_USUARIO" }
+    val reservasActivas = listaReservas
 
     var reservaAEliminar by remember { mutableStateOf<Reservation?>(null) }
     var mostrarDialogo by remember { mutableStateOf(false) }
@@ -36,9 +36,15 @@ fun ReservasScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Mis Reservas") },
+                title = {
+                    Text(
+                        text = "Mis Reservas",
+                        color = Color.White, // ⚪ Letra blanca para el título
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color(0xFF003A70) // 🟦 Fondo azul para la barra superior
                 )
             )
         }
@@ -74,7 +80,6 @@ fun ReservasScreen(
             }
         }
 
-
         if (mostrarDialogo && reservaAEliminar != null) {
             AlertDialog(
                 onDismissRequest = { mostrarDialogo = false },
@@ -106,7 +111,6 @@ fun ReservasScreen(
     }
 }
 
-
 @Composable
 fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
     Card(
@@ -115,32 +119,44 @@ fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Sala ID: ${reserva.roomId}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color(0xFF154360)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "📅 Fecha: ${reserva.date}", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "⏰ Hora: ${reserva.startTime} - ${reserva.endTime}", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "Estado: ${reserva.status}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
+        // Envolvemos todo en un Column para que la franja azul se posicione arriba del Row
+        Column(modifier = Modifier.fillMaxWidth()) {
 
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Cancelar reserva",
-                    tint = Color.Red.copy(alpha = 0.8f)
-                )
+            // 🟦 Pedazo superior color azulito
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(12.dp) // Grosor de la franja
+                    .background(Color(0xFF003A70)) // Mismo tono azul elegante
+            )
+
+            // El contenido original de la tarjeta (Textos y botón de eliminar)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sala ID: ${reserva.roomId}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF154360)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "📅 Fecha: ${reserva.date}", style = MaterialTheme.typography.bodyMedium)
+                    Text(text = "⏰ Hora: ${reserva.startTime} - ${reserva.endTime}", style = MaterialTheme.typography.bodyMedium)
+                }
+
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Cancelar reserva",
+                        tint = Color.Red.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
     }
