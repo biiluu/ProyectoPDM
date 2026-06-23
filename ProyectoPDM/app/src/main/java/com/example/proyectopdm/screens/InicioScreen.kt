@@ -37,6 +37,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.runtime.setValue
+import com.example.proyectopdm.viewmodel.ReservationViewModel
 
 @Composable
 fun InicioScreen(
@@ -44,7 +45,8 @@ fun InicioScreen(
     onFloorClick: (Int) -> Unit,
     profileViewModel: ProfileViewModel = viewModel(),
     roomViewModel: StudyRoomViewModel = viewModel(),
-    termViewModel: TermViewModel = viewModel()
+    termViewModel: TermViewModel = viewModel(),
+    reservationViewModel: ReservationViewModel = viewModel()
 ) {
     LaunchedEffect(carnet) {
         profileViewModel.loadUser(carnet)
@@ -54,6 +56,7 @@ fun InicioScreen(
     val availableRooms by roomViewModel.rooms.collectAsState()
 
     var roomForTerms by remember { mutableStateOf<StudyRoom?>(null) }
+    var roomForReservation by remember { mutableStateOf<StudyRoom?>(null) }
 
     val currentDate = LocalDate.now().format(
         DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-ES"))
@@ -214,11 +217,25 @@ fun InicioScreen(
             termViewModel = termViewModel,
             onDismiss = { roomForTerms = null },
             onTermsAccepted = {
+                val room = roomForTerms
                 roomForTerms = null
+                roomForReservation = room
             }
             )
-        }
     }
+
+        if (roomForReservation != null) {
+            ReservationBottomSheet(
+                room = roomForReservation!!,
+                carnet = carnet,
+                reservationViewModel = reservationViewModel,
+                onDismiss = { roomForReservation = null }
+            )
+        }
+
+    }
+
+
 }
 
 @Composable

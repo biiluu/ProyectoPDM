@@ -44,6 +44,56 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun resetMessages() {
+        successMessage = null
+        errorMessage = null
+    }
+
+    suspend fun getAvailableStartTimes(roomId: Int, date: String, userCarnet: String): List<String> {
+        val availableSlots = mutableListOf<String>()
+        val formatter = DateTimeFormatter.ofPattern("HH:mm")
+
+        var currentSlot = LocalTime.of(7, 0)
+        val lastSlotTime = LocalTime.of(18, 30)
+
+        val roomReservations = reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
+        val userActiveReservations = reservationRepository.getReservationsByUser(userCarnet).first()
+            .filter { it.date == date && !it.status.contains("CANCELADA") }
+
+        while (!currentSlot.isAfter(lastSlotTime)) {
+            var isOccupied = false
+
+            // Verificar si la SALA esta ocupada en este bloque
+            for (res in roomReservations) {
+                if (res.status == "CANCELADA_USUARIO") continue
+
+                val resStart = LocalTime.parse(res.startTime, formatter)
+                val resEnd = LocalTime.parse(res.endTime, formatter)
+                if (!currentSlot.isBefore(resStart) && currentSlot.isBefore(resEnd)) {
+                    isOccupied = true; break
+                }
+            }
+
+            // Verificar si el USUARIO ya tiene algo reservado a esa hora
+            if (!isOccupied) {
+                for (res in userActiveReservations) {
+                    val resStart = LocalTime.parse(res.startTime, formatter)
+                    val resEnd = LocalTime.parse(res.endTime, formatter)
+                    if (!currentSlot.isBefore(resStart) && currentSlot.isBefore(resEnd)) {
+                        isOccupied = true; break
+                    }
+                }
+            }
+
+            if (!isOccupied) {
+                availableSlots.add(currentSlot.format(formatter))
+            }
+            currentSlot = currentSlot.plusMinutes(30) // Incrementos de 30 minutos
+        }
+
+        return availableSlots
+    }
+
     fun makeReservation(
         carnet: String,
         room: StudyRoom,

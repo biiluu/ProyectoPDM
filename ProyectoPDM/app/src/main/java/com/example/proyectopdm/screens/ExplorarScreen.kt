@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.ui.theme.*
+import com.example.proyectopdm.viewmodel.ReservationViewModel
 import com.example.proyectopdm.viewmodel.StudyRoomViewModel
 import com.example.proyectopdm.viewmodel.TermViewModel
 
@@ -28,12 +29,14 @@ fun ExplorarScreen(
     carnet: String,
     initialFloor: Int = 0,
     viewModel: StudyRoomViewModel = viewModel(),
-    termViewModel: TermViewModel = viewModel()
+    termViewModel: TermViewModel = viewModel(),
+    reservationViewModel: ReservationViewModel = viewModel()
 ) {
     var selectedFloor by remember { mutableIntStateOf(initialFloor) }
     val rooms by viewModel.rooms.collectAsState()
 
     var roomForTerms by remember { mutableStateOf<StudyRoom?>(null) }
+    var roomForReservation by remember { mutableStateOf<StudyRoom?>(null) }
 
     val filteredRooms = if (selectedFloor == 0) {
         rooms
@@ -101,8 +104,19 @@ fun ExplorarScreen(
                 termViewModel = termViewModel,
                 onDismiss = { roomForTerms = null },
                 onTermsAccepted = {
+                    val room = roomForTerms
                     roomForTerms = null
+                    roomForReservation = room
                 }
+            )
+        }
+
+        if (roomForReservation != null) {
+            ReservationBottomSheet(
+                room = roomForReservation!!,
+                carnet = carnet,
+                reservationViewModel = reservationViewModel,
+                onDismiss = { roomForReservation = null }
             )
         }
     }
