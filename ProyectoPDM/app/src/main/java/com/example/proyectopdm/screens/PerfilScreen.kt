@@ -132,7 +132,7 @@ fun PerfilScreen(
             ProfileStatItem(
                 icon = Icons.Default.DateRange,
                 label = "Reservas totales",
-                value = "0"
+                value = viewModel.reservationCount.toString()
             )
             Spacer(modifier = Modifier.height(8.dp))
             ProfileStatItem(

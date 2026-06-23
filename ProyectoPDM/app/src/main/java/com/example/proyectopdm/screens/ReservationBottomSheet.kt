@@ -88,7 +88,18 @@ fun ReservationBottomSheet(
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli(),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    // Bloquear fechas anteriores a hoy
+                    val today = LocalDate.now().atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+                    return utcTimeMillis >= today
+                }
+
+                override fun isSelectableYear(year: Int): Boolean {
+                    return year >= LocalDate.now().year
+                }
+            }
         )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -105,7 +116,26 @@ fun ReservationBottomSheet(
             },
             colors = DatePickerDefaults.colors(containerColor = Color.White)
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = Color.White,
+                    titleContentColor = UcaBlue,
+                    headlineContentColor = UcaBlue,
+                    weekdayContentColor = UcaBlue.copy(alpha = 0.7f),
+                    subheadContentColor = UcaBlue,
+                    yearContentColor = Color.Black,
+                    currentYearContentColor = UcaBlue,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = UcaBlue,
+                    dayContentColor = Color.Black,
+                    disabledDayContentColor = Color.LightGray,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = UcaBlue,
+                    todayContentColor = UcaBlue,
+                    todayDateBorderColor = UcaBlue
+                )
+            )
         }
     }
 
@@ -125,7 +155,7 @@ fun ReservationBottomSheet(
                     .padding(top = 10.dp, bottom = 20.dp)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Box(modifier = Modifier.width(40.dp).height(4.dp).background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.dp)))
+                    Box(modifier = Modifier.width(40.dp).height(4.dp).background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.2.dp)))
                     Spacer(modifier = Modifier.height(16.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),

@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.data.AppDataBase
+import com.example.proyectopdm.data.SessionManager
 import com.example.proyectopdm.data.repository.StudyRoomRepository
 import com.example.proyectopdm.data.repository.UserRepository
 import com.example.proyectopdm.data.resources.DummyData
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 class LoginViewModel(application: Application) : AndroidViewModel(application) {
     private val userRepository: UserRepository
     private val studyRoomRepository: StudyRoomRepository
+    private val sessionManager = SessionManager(application)
     
     var carne by mutableStateOf("")
     var password by mutableStateOf("")
@@ -27,21 +29,24 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         userRepository = UserRepository(db.userDao())
         studyRoomRepository = StudyRoomRepository(db.studyRoomDao())
         
-        // Sincronización forzada con DummyData
+        // Sincronización condicional con DummyData
         viewModelScope.launch {
             try {
-                Log.d("PDM_DEBUG", "Limpiando base de datos...")
-                userRepository.deleteAllUsers()
-                studyRoomRepository.deleteAllRooms()
+                // Verificamos si ya existen usuarios para no borrar las reservas (por el CASCADE)
+                val userCount = userRepository.getUserCount()
                 
-                Log.d("PDM_DEBUG", "Cargando datos desde DummyData...")
-                DummyData.users.forEach { user ->
-                    userRepository.insertUser(user)
+                if (userCount == 0) {
+                    Log.d("PDM_DEBUG", "Base de datos vacía. Cargando datos iniciales...")
+                    
+                    DummyData.users.forEach { user ->
+                        userRepository.insertUser(user)
+                    }
+                    
+                    studyRoomRepository.insertRooms(DummyData.studyRooms)
+                    Log.d("PDM_DEBUG", "Sincronización inicial completa.")
+                } else {
+                    Log.d("PDM_DEBUG", "La base de datos ya contiene información. Manteniendo datos existentes.")
                 }
-                
-                studyRoomRepository.insertRooms(DummyData.studyRooms)
-                
-                Log.d("PDM_DEBUG", "Sincronización completa.")
             } catch (e: Exception) {
                 Log.e("PDM_DEBUG", "Error en sincronización: ${e.message}")
             }
@@ -65,6 +70,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
             
             if (user != null) {
                 Log.d("PDM_DEBUG", "¡Login exitoso! Bienvenido ${user.name}")
+                sessionManager.saveSession(user.carnet)
                 onLoginSuccess(user.carnet)
             } else {
                 Log.e("PDM_DEBUG", "Login fallido: Credenciales no encontradas en DB")
