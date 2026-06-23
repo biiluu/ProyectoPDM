@@ -27,21 +27,24 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
         userRepository = UserRepository(db.userDao())
         studyRoomRepository = StudyRoomRepository(db.studyRoomDao())
         
-        // Sincronización forzada con DummyData
+        // Sincronización condicional con DummyData
         viewModelScope.launch {
             try {
-                Log.d("PDM_DEBUG", "Limpiando base de datos...")
-                userRepository.deleteAllUsers()
-                studyRoomRepository.deleteAllRooms()
+                // Verificamos si ya existen usuarios para no borrar las reservas (por el CASCADE)
+                val userCount = userRepository.getUserCount()
                 
-                Log.d("PDM_DEBUG", "Cargando datos desde DummyData...")
-                DummyData.users.forEach { user ->
-                    userRepository.insertUser(user)
+                if (userCount == 0) {
+                    Log.d("PDM_DEBUG", "Base de datos vacía. Cargando datos iniciales...")
+                    
+                    DummyData.users.forEach { user ->
+                        userRepository.insertUser(user)
+                    }
+                    
+                    studyRoomRepository.insertRooms(DummyData.studyRooms)
+                    Log.d("PDM_DEBUG", "Sincronización inicial completa.")
+                } else {
+                    Log.d("PDM_DEBUG", "La base de datos ya contiene información. Manteniendo datos existentes.")
                 }
-                
-                studyRoomRepository.insertRooms(DummyData.studyRooms)
-                
-                Log.d("PDM_DEBUG", "Sincronización completa.")
             } catch (e: Exception) {
                 Log.e("PDM_DEBUG", "Error en sincronización: ${e.message}")
             }
