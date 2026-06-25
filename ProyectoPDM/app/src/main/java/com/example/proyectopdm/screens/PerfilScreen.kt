@@ -138,7 +138,7 @@ fun PerfilScreen(
             ProfileStatItem(
                 icon = Icons.Default.AccessTime,
                 label = "Horas reservadas",
-                value = "0 Hrs"
+                value = String.format("%.1f Hrs", viewModel.totalHours)
             )
             Spacer(modifier = Modifier.height(8.dp))
             ProfileStatItem(

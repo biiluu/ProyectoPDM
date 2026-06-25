@@ -37,7 +37,7 @@ class StudyRoomViewModel(application: Application) : AndroidViewModel(applicatio
         availableNowRooms = combine(
             studyRoomRepository.getAllRooms(),
             reservationDao.getAllActiveReservationsByDate(today)
-        ) { allRooms, activeReservations ->
+        ) { allRooms: List<StudyRoom>, activeReservations: List<Reservation> ->
             getAvailableRoomsNow(allRooms, activeReservations)
         }.stateIn(
             scope = viewModelScope,

@@ -28,7 +28,11 @@ fun ReservasScreen(
     viewModel: ReservationViewModel = viewModel()
 ) {
     val listaReservas by viewModel.getUserReservationsFlow(carnet).collectAsState(initial = emptyList())
-    val reservasActivas = listaReservas
+    
+    // FILTRO: Solo mostrar reservas que no han sido canceladas
+    val reservasActivas = listaReservas.filter { 
+        it.status != "CANCELADA_USUARIO" && it.status != "CANCELADA_INASISTENCIA" 
+    }
 
     var reservaAEliminar by remember { mutableStateOf<Reservation?>(null) }
     var mostrarDialogo by remember { mutableStateOf(false) }
@@ -36,46 +40,26 @@ fun ReservasScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Mis Reservas",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF003A70)
-                )
+                title = { Text("Mis Reservas", color = Color.White, fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF1D3354))
             )
         }
     ) { paddingValues ->
-
         if (reservasActivas.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 Text("No tienes reservas activas.", color = Color.Gray)
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(horizontal = 16.dp),
+                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 items(reservasActivas) { reserva ->
-                    ReservaCard(
-                        reserva = reserva,
-                        onDeleteClick = {
-                            reservaAEliminar = reserva
-                            mostrarDialogo = true
-                        }
-                    )
+                    ReservaCard(reserva = reserva, onDeleteClick = {
+                        reservaAEliminar = reserva
+                        mostrarDialogo = true
+                    })
                 }
             }
         }
@@ -86,25 +70,14 @@ fun ReservasScreen(
                 title = { Text("Cancelar Reserva") },
                 text = { Text("¿Estás seguro de que deseas cancelar esta reserva?") },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            reservaAEliminar?.let { viewModel.cancelReservation(it) }
-                            mostrarDialogo = false
-                            reservaAEliminar = null
-                        }
-                    ) {
-                        Text("Sí, cancelar", color = Color.Red)
-                    }
+                    TextButton(onClick = {
+                        reservaAEliminar?.let { viewModel.cancelReservation(it) }
+                        mostrarDialogo = false
+                        reservaAEliminar = null
+                    }) { Text("Sí, cancelar", color = Color.Red) }
                 },
                 dismissButton = {
-                    TextButton(
-                        onClick = {
-                            mostrarDialogo = false
-                            reservaAEliminar = null
-                        }
-                    ) {
-                        Text("Mantener")
-                    }
+                    TextButton(onClick = { mostrarDialogo = false }) { Text("Mantener") }
                 }
             )
         }
@@ -119,43 +92,16 @@ fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-
-        Column(modifier = Modifier.fillMaxWidth()) {
-
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .background(Color(0xFF003A70))
-            )
-
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+        Column {
+            Box(modifier = Modifier.fillMaxWidth().height(8.dp).background(Color(0xFF1D3354)))
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Sala ID: ${reserva.roomId}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = Color(0xFF154360)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "📅 Fecha: ${reserva.date}", style = MaterialTheme.typography.bodyMedium)
-                    Text(text = "⏰ Hora: ${reserva.startTime} - ${reserva.endTime}", style = MaterialTheme.typography.bodyMedium)
+                    Text(text = "Sala ID: ${reserva.roomId}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF154360))
+                    Text(text = "📅 Fecha: ${reserva.date}")
+                    Text(text = "⏰ Hora: ${reserva.startTime} - ${reserva.endTime}")
                 }
-
                 IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Cancelar reserva",
-                        tint = Color.Red.copy(alpha = 0.8f)
-                    )
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(alpha = 0.7f))
                 }
             }
         }
