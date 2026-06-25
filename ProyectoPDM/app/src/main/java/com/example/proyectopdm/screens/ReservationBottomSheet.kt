@@ -59,12 +59,13 @@ fun ReservationBottomSheet(
     var expandedTime by remember { mutableStateOf(false) }
 
     // Duracion
-    val durationOptions = listOf(1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)
+    val durationOptions = listOf(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)
     var selectedDuration by remember { mutableDoubleStateOf(1.0) }
     var expandedDuration by remember { mutableStateOf(false) }
 
     // Formatear duracion
     fun formatDuration(d: Double): String {
+        if (d == 0.5) return "30 minutos"
         val intPart = d.toInt()
         val isHalf = d - intPart > 0
         val numStr = if (isHalf) d.toString() else intPart.toString()

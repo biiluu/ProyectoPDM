@@ -1,17 +1,16 @@
 package com.example.proyectopdm.viewmodel
 
 import android.app.Application
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.data.AppDataBase
 import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.repository.ReservationRepository
-import com.example.proyectopdm.data.repository.StudyRoomRepository
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import java.time.LocalTime
+import java.time.LocalDate
+import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -52,9 +51,14 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
     suspend fun getAvailableStartTimes(roomId: Int, date: String, userCarnet: String): List<String> {
         val availableSlots = mutableListOf<String>()
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
+        
+        val localDate = LocalDate.parse(date)
+        val isSaturday = localDate.dayOfWeek == DayOfWeek.SATURDAY
 
         var currentSlot = LocalTime.of(7, 0)
-        val lastSlotTime = LocalTime.of(18, 30)
+        // Si es sábado, el último slot de inicio es 11:30 (para terminar a las 12:00)
+        // De lunes a viernes, el último slot de inicio es 18:30 (para terminar a las 19:00)
+        val lastSlotTime = if (isSaturday) LocalTime.of(11, 30) else LocalTime.of(18, 30)
 
         val roomReservations = reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
         val userActiveReservations = reservationRepository.getReservationsByUser(userCarnet).first()
@@ -124,6 +128,31 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     errorMessage = "La hora de inicio debe ser anterior a la hora de fin."
                     isLoading = false
                     return@launch
+                }
+                
+                // Validaciones de horario según el día
+                val localDate = LocalDate.parse(date)
+                when (localDate.dayOfWeek) {
+                    DayOfWeek.SATURDAY -> {
+                        if (newEnd.isAfter(LocalTime.of(12, 0))) {
+                            errorMessage = "Los sábados el servicio es hasta las 12:00 PM. Por favor reduce la duración o elige una hora más temprana."
+                            isLoading = false
+                            return@launch
+                        }
+                    }
+                    DayOfWeek.SUNDAY -> {
+                        errorMessage = "Los domingos no hay servicio de reserva."
+                        isLoading = false
+                        return@launch
+                    }
+                    else -> {
+                        // Lunes a Viernes
+                        if (newEnd.isAfter(LocalTime.of(19, 0))) {
+                            errorMessage = "De lunes a viernes el servicio es hasta las 7:00 PM. Por favor reduce la duración o elige una hora más temprana."
+                            isLoading = false
+                            return@launch
+                        }
+                    }
                 }
 
                 // 3. Validar traslape de horarios
