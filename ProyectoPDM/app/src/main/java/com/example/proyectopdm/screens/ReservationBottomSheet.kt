@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.viewmodel.ReservationViewModel
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -44,7 +45,12 @@ fun ReservationBottomSheet(
     val peopleOptions = (room.minCapacity..room.maxCapacity).toList()
 
     // Fecha (Calendario)
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDate by remember {
+        mutableStateOf(
+            if (LocalDate.now().dayOfWeek == DayOfWeek.SUNDAY) LocalDate.now().plusDays(1)
+            else LocalDate.now()
+        )
+    }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // Hora
@@ -91,9 +97,10 @@ fun ReservationBottomSheet(
             initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli(),
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                    // Bloquear fechas anteriores a hoy
+                    val date = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneId.of("UTC")).toLocalDate()
+                    // Bloquear fechas anteriores a hoy y domingos
                     val today = LocalDate.now().atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
-                    return utcTimeMillis >= today
+                    return utcTimeMillis >= today && date.dayOfWeek != DayOfWeek.SUNDAY
                 }
 
                 override fun isSelectableYear(year: Int): Boolean {
