@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.proyectopdm.data.entities.Reservation
+import com.example.proyectopdm.data.entities.ReservationWithRoom
 import com.example.proyectopdm.viewmodel.ReservationViewModel
 import java.time.LocalDate
 import java.time.LocalTime
@@ -32,7 +33,7 @@ fun ReservasScreen(
     carnet: String,
     viewModel: ReservationViewModel = viewModel()
 ) {
-    val listaReservas by viewModel.getUserReservationsFlow(carnet).collectAsState(initial = emptyList())
+    val listaReservasWithRoom by viewModel.getUserReservationsWithRoomFlow(carnet).collectAsState(initial = emptyList())
     
     // Ejecutar limpieza de inasistencias al entrar
     LaunchedEffect(Unit) {
@@ -40,8 +41,8 @@ fun ReservasScreen(
     }
 
     // FILTRO: Solo mostrar reservas que no han sido canceladas
-    val reservasActivas = listaReservas.filter { 
-        it.status != "CANCELADA_USUARIO" && it.status != "CANCELADA_INASISTENCIA" 
+    val reservasActivas = listaReservasWithRoom.filter { 
+        it.reservation.status != "CANCELADA_USUARIO" && it.reservation.status != "CANCELADA_INASISTENCIA" 
     }
 
     var reservaAEliminar by remember { mutableStateOf<Reservation?>(null) }
@@ -79,15 +80,15 @@ fun ReservasScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
-                items(reservasActivas) { reserva ->
+                items(reservasActivas) { item ->
                     ReservaCard(
-                        reserva = reserva, 
+                        reservationWithRoom = item, 
                         onDeleteClick = {
-                            reservaAEliminar = reserva
+                            reservaAEliminar = item.reservation
                             mostrarDialogo = true
                         },
                         onConfirmAttendance = {
-                            viewModel.confirmAttendance(reserva)
+                            viewModel.confirmAttendance(item.reservation)
                         }
                     )
                 }
@@ -116,18 +117,17 @@ fun ReservasScreen(
 
 @Composable
 fun ReservaCard(
-    reserva: Reservation, 
+    reservationWithRoom: ReservationWithRoom, 
     onDeleteClick: () -> Unit,
     onConfirmAttendance: () -> Unit
 ) {
+    val reserva = reservationWithRoom.reservation
+    val room = reservationWithRoom.studyRoom
+    
     val now = LocalTime.now()
     val today = LocalDate.now().toString()
     val formatter = DateTimeFormatter.ofPattern("HH:mm")
     
-    // Lógica para mostrar el botón de confirmar:
-    // 1. Debe estar PENDIENTE
-    // 2. Debe ser el día de hoy
-    // 3. Ya debe haber empezado la hora de inicio
     val resStartTime = try { LocalTime.parse(reserva.startTime, formatter) } catch(e: Exception) { null }
     val esHoraDeCheckIn = resStartTime != null && reserva.date == today && !now.isBefore(resStartTime)
     val mostrarBotonConfirmar = esHoraDeCheckIn && reserva.status == "PENDIENTE"
@@ -143,8 +143,15 @@ fun ReservaCard(
             
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
+                    // Lógica inteligente para mostrar el nombre y nivel sin redundancias
+                    val displayName = if (room.name.contains("Nivel", ignoreCase = true)) {
+                        room.name
+                    } else {
+                        "${room.name} - Nivel ${room.floor}"
+                    }
+
                     Text(
-                        text = "Sala ID: ${reserva.roomId}", 
+                        text = displayName,
                         fontWeight = FontWeight.Bold, 
                         fontSize = 18.sp, 
                         color = Color(0xFF154360)
@@ -154,7 +161,6 @@ fun ReservaCard(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    // Etiqueta de Estado
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val statusColor = when(reserva.status) {
                             "CONFIRMADA" -> Color(0xFF2E7D32)

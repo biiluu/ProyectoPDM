@@ -1,17 +1,18 @@
 package com.example.proyectopdm.data.dao
 
-import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room.*
 import com.example.proyectopdm.data.entities.Reservation
+import com.example.proyectopdm.data.entities.ReservationWithRoom
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReservationDao {
     @Insert
     suspend fun insertReservation(reservation: Reservation)
+
+    @Transaction
+    @Query("SELECT * FROM reservations WHERE userCarnet = :carnet")
+    fun getReservationsWithRoomByUser(carnet: String): Flow<List<ReservationWithRoom>>
 
     @Query("SELECT * FROM reservations WHERE userCarnet = :carnet")
     fun getReservationsByUser(carnet: String): Flow<List<Reservation>>

@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.data.AppDataBase
 import com.example.proyectopdm.data.entities.Reservation
+import com.example.proyectopdm.data.entities.ReservationWithRoom
 import com.example.proyectopdm.data.repository.ReservationRepository
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -33,6 +34,10 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
 
     fun getUserReservationsFlow(carnet: String): Flow<List<Reservation>> {
         return reservationRepository.getReservationsByUser(carnet)
+    }
+
+    fun getUserReservationsWithRoomFlow(carnet: String): Flow<List<ReservationWithRoom>> {
+        return reservationRepository.getReservationsWithRoomByUser(carnet)
     }
 
     /**
@@ -99,6 +104,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         
         val localDate = LocalDate.parse(date)
+        val today = LocalDate.now()
+        val now = LocalTime.now()
         val isSaturday = localDate.dayOfWeek == DayOfWeek.SATURDAY
 
         var currentSlot = LocalTime.of(7, 0)
@@ -110,6 +117,12 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
             .filter { it.date == date && !it.status.contains("CANCELADA") }
 
         while (!currentSlot.isAfter(lastSlotTime)) {
+            // BLOQUEO DE TIEMPO PASADO: Si es hoy, no mostrar horas que ya pasaron
+            if (localDate == today && currentSlot.isBefore(now)) {
+                currentSlot = currentSlot.plusMinutes(30)
+                continue
+            }
+
             var isOccupied = false
 
             // Verificar si la SALA está ocupada
@@ -157,7 +170,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         isLoading = true
 
         viewModelScope.launch {
-            // 1. Validar capacidad
             if (peopleCount < room.minCapacity || peopleCount > room.maxCapacity) {
                 errorMessage = "Esta sala permite entre ${room.minCapacity} y ${room.maxCapacity} personas."
                 isLoading = false
@@ -168,20 +180,37 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                 val formatter = DateTimeFormatter.ofPattern("HH:mm")
                 val newStart = LocalTime.parse(startTime, formatter)
                 val newEnd = LocalTime.parse(endTime, formatter)
+                
+                val localDate = LocalDate.parse(date)
+                val today = LocalDate.now()
+                val now = LocalTime.now()
 
-                // 2. Validar que la hora de inicio sea antes que la de fin
+                // 1. Validar que no sea una fecha pasada
+                if (localDate.isBefore(today)) {
+                    errorMessage = "No puedes reservar en una fecha pasada."
+                    isLoading = false
+                    return@launch
+                }
+
+                // 2. Validar que no sea una hora pasada (si es hoy)
+                if (localDate == today && newStart.isBefore(now)) {
+                    errorMessage = "No puedes reservar un horario que ya pasó."
+                    isLoading = false
+                    return@launch
+                }
+
+                // 3. Validar que la hora de inicio sea antes que la de fin
                 if (!newStart.isBefore(newEnd)) {
                     errorMessage = "La hora de inicio debe ser anterior a la hora de fin."
                     isLoading = false
                     return@launch
                 }
                 
-                // Validaciones de horario según el día
-                val localDate = LocalDate.parse(date)
+                // 4. Validaciones de horario según el día (Horarios CRAI)
                 when (localDate.dayOfWeek) {
                     DayOfWeek.SATURDAY -> {
                         if (newEnd.isAfter(LocalTime.of(12, 0))) {
-                            errorMessage = "Los sábados el servicio es hasta las 12:00 PM. Por favor reduce la duración o elige una hora más temprana."
+                            errorMessage = "Los sábados el servicio es hasta las 12:00 PM."
                             isLoading = false
                             return@launch
                         }
@@ -192,33 +221,28 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                         return@launch
                     }
                     else -> {
-                        // Lunes a Viernes
                         if (newEnd.isAfter(LocalTime.of(19, 0))) {
-                            errorMessage = "De lunes a viernes el servicio es hasta las 7:00 PM. Por favor reduce la duración o elige una hora más temprana."
+                            errorMessage = "De lunes a viernes el servicio es hasta las 7:00 PM."
                             isLoading = false
                             return@launch
                         }
                     }
                 }
 
-                // 3. Validar traslape de horarios
                 val existingReservations = reservationRepository.getActiveReservationsForRoomAndDate(room.id, date).first()
                 
                 val hasOverlap = existingReservations.any { existing ->
                     val existingStart = LocalTime.parse(existing.startTime, formatter)
                     val existingEnd = LocalTime.parse(existing.endTime, formatter)
-                    
-                    // Condición de traslape: (NuevoInicio < ExistenteFin) Y (NuevoFin > ExistenteInicio)
                     newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)
                 }
 
                 if (hasOverlap) {
-                    errorMessage = "El horario seleccionado coincide con otra reserva existente para esta sala."
+                    errorMessage = "El horario seleccionado coincide con otra reserva existente."
                     isLoading = false
                     return@launch
                 }
 
-                // 4. Si todo es correcto, insertar
                 val newReservation = Reservation(
                     userCarnet = carnet,
                     roomId = room.id,
