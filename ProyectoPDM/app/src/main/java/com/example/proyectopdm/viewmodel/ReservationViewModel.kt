@@ -35,11 +35,57 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         return reservationRepository.getReservationsByUser(carnet)
     }
 
+    /**
+     * Cancela una reserva a petición del usuario.
+     */
     fun cancelReservation(reservation: Reservation) {
         viewModelScope.launch {
             val canceledReservation = reservation.copy(status = "CANCELADA_USUARIO")
             reservationRepository.updateReservation(canceledReservation)
             successMessage = "Reserva cancelada exitosamente."
+        }
+    }
+
+    /**
+     * Confirma la asistencia del usuario a la sala (Check-in).
+     */
+    fun confirmAttendance(reservation: Reservation) {
+        viewModelScope.launch {
+            val confirmedReservation = reservation.copy(status = "CONFIRMADA")
+            reservationRepository.updateReservation(confirmedReservation)
+            successMessage = "Asistencia confirmada. ¡Disfruta de la sala!"
+        }
+    }
+
+    /**
+     * Revisa y cancela automáticamente las reservas que no registraron asistencia
+     * después de 15 minutos de la hora de inicio.
+     */
+    fun checkAndCancelOverdueReservations(carnet: String) {
+        viewModelScope.launch {
+            val now = LocalTime.now()
+            val today = LocalDate.now().toString()
+            val formatter = DateTimeFormatter.ofPattern("HH:mm")
+
+            val reservations = reservationRepository.getReservationsByUser(carnet).first()
+            
+            reservations.forEach { res ->
+                if (res.status == "PENDIENTE") {
+                    val resDate = res.date
+                    val resStartTime = try { LocalTime.parse(res.startTime, formatter) } catch(e: Exception) { null }
+                    
+                    if (resStartTime != null) {
+                        // Si la fecha es anterior a hoy, o es hoy y ya pasaron más de 15 minutos
+                        val isPastDay = resDate < today
+                        val isTodayOverdue = resDate == today && now.isAfter(resStartTime.plusMinutes(15))
+                        
+                        if (isPastDay || isTodayOverdue) {
+                            val updated = res.copy(status = "CANCELADA_INASISTENCIA")
+                            reservationRepository.updateReservation(updated)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -56,8 +102,7 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         val isSaturday = localDate.dayOfWeek == DayOfWeek.SATURDAY
 
         var currentSlot = LocalTime.of(7, 0)
-        // Si es sábado, el último slot de inicio es 11:30 (para terminar a las 12:00)
-        // De lunes a viernes, el último slot de inicio es 18:30 (para terminar a las 19:00)
+        // Límite de inicio según el día
         val lastSlotTime = if (isSaturday) LocalTime.of(11, 30) else LocalTime.of(18, 30)
 
         val roomReservations = reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
@@ -67,9 +112,10 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         while (!currentSlot.isAfter(lastSlotTime)) {
             var isOccupied = false
 
-            // Verificar si la SALA esta ocupada en este bloque
+            // Verificar si la SALA está ocupada
             for (res in roomReservations) {
-                if (res.status == "CANCELADA_USUARIO") continue
+                // Liberamos el espacio si fue cancelada por el usuario o por inasistencia
+                if (res.status == "CANCELADA_USUARIO" || res.status == "CANCELADA_INASISTENCIA") continue
 
                 val resStart = LocalTime.parse(res.startTime, formatter)
                 val resEnd = LocalTime.parse(res.endTime, formatter)
@@ -92,7 +138,7 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
             if (!isOccupied) {
                 availableSlots.add(currentSlot.format(formatter))
             }
-            currentSlot = currentSlot.plusMinutes(30) // Incrementos de 30 minutos
+            currentSlot = currentSlot.plusMinutes(30)
         }
 
         return availableSlots

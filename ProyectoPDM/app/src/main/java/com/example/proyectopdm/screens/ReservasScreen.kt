@@ -6,7 +6,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +21,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.viewmodel.ReservationViewModel
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +34,11 @@ fun ReservasScreen(
 ) {
     val listaReservas by viewModel.getUserReservationsFlow(carnet).collectAsState(initial = emptyList())
     
+    // Ejecutar limpieza de inasistencias al entrar
+    LaunchedEffect(Unit) {
+        viewModel.checkAndCancelOverdueReservations(carnet)
+    }
+
     // FILTRO: Solo mostrar reservas que no han sido canceladas
     val reservasActivas = listaReservas.filter { 
         it.status != "CANCELADA_USUARIO" && it.status != "CANCELADA_INASISTENCIA" 
@@ -36,8 +46,22 @@ fun ReservasScreen(
 
     var reservaAEliminar by remember { mutableStateOf<Reservation?>(null) }
     var mostrarDialogo by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Mostrar mensajes de éxito o error del ViewModel
+    LaunchedEffect(viewModel.successMessage, viewModel.errorMessage) {
+        viewModel.successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.resetMessages()
+        }
+        viewModel.errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.resetMessages()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Mis Reservas", color = Color.White, fontWeight = FontWeight.Bold) },
@@ -56,10 +80,16 @@ fun ReservasScreen(
                 contentPadding = PaddingValues(vertical = 16.dp)
             ) {
                 items(reservasActivas) { reserva ->
-                    ReservaCard(reserva = reserva, onDeleteClick = {
-                        reservaAEliminar = reserva
-                        mostrarDialogo = true
-                    })
+                    ReservaCard(
+                        reserva = reserva, 
+                        onDeleteClick = {
+                            reservaAEliminar = reserva
+                            mostrarDialogo = true
+                        },
+                        onConfirmAttendance = {
+                            viewModel.confirmAttendance(reserva)
+                        }
+                    )
                 }
             }
         }
@@ -85,7 +115,23 @@ fun ReservasScreen(
 }
 
 @Composable
-fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
+fun ReservaCard(
+    reserva: Reservation, 
+    onDeleteClick: () -> Unit,
+    onConfirmAttendance: () -> Unit
+) {
+    val now = LocalTime.now()
+    val today = LocalDate.now().toString()
+    val formatter = DateTimeFormatter.ofPattern("HH:mm")
+    
+    // Lógica para mostrar el botón de confirmar:
+    // 1. Debe estar PENDIENTE
+    // 2. Debe ser el día de hoy
+    // 3. Ya debe haber empezado la hora de inicio
+    val resStartTime = try { LocalTime.parse(reserva.startTime, formatter) } catch(e: Exception) { null }
+    val esHoraDeCheckIn = resStartTime != null && reserva.date == today && !now.isBefore(resStartTime)
+    val mostrarBotonConfirmar = esHoraDeCheckIn && reserva.status == "PENDIENTE"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -94,14 +140,56 @@ fun ReservaCard(reserva: Reservation, onDeleteClick: () -> Unit) {
     ) {
         Column {
             Box(modifier = Modifier.fillMaxWidth().height(8.dp).background(Color(0xFF1D3354)))
+            
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Sala ID: ${reserva.roomId}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF154360))
+                    Text(
+                        text = "Sala ID: ${reserva.roomId}", 
+                        fontWeight = FontWeight.Bold, 
+                        fontSize = 18.sp, 
+                        color = Color(0xFF154360)
+                    )
                     Text(text = "📅 Fecha: ${reserva.date}")
                     Text(text = "⏰ Hora: ${reserva.startTime} - ${reserva.endTime}")
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Etiqueta de Estado
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val statusColor = when(reserva.status) {
+                            "CONFIRMADA" -> Color(0xFF2E7D32)
+                            else -> Color(0xFFF57C00)
+                        }
+                        val statusIcon = if (reserva.status == "CONFIRMADA") Icons.Default.CheckCircle else Icons.Default.Timer
+                        
+                        Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if(reserva.status == "CONFIRMADA") "Asistencia Confirmada" else "Pendiente de Asistencia",
+                            color = statusColor,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
+                
                 IconButton(onClick = onDeleteClick) {
                     Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(alpha = 0.7f))
+                }
+            }
+
+            if (mostrarBotonConfirmar) {
+                Button(
+                    onClick = onConfirmAttendance,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1D3354)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Confirmar Asistencia")
                 }
             }
         }
