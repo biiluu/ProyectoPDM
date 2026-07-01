@@ -37,16 +37,19 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.runtime.setValue
+import com.example.proyectopdm.viewmodel.NotificationViewModel
 import com.example.proyectopdm.viewmodel.ReservationViewModel
 
 @Composable
 fun InicioScreen(
     carnet: String,
     onFloorClick: (Int) -> Unit,
+    onNotificationClick: () -> Unit,
     profileViewModel: ProfileViewModel = viewModel(),
     roomViewModel: StudyRoomViewModel = viewModel(),
     termViewModel: TermViewModel = viewModel(),
-    reservationViewModel: ReservationViewModel = viewModel()
+    reservationViewModel: ReservationViewModel = viewModel(),
+    notificationViewModel: NotificationViewModel = viewModel()
 ) {
     LaunchedEffect(carnet) {
         profileViewModel.loadUser(carnet)
@@ -54,6 +57,8 @@ fun InicioScreen(
 
     val user = profileViewModel.user
     val availableRooms by roomViewModel.rooms.collectAsState()
+    val notifications by notificationViewModel.getNotifications(carnet).collectAsState(initial = emptyList())
+    val hasUnread = notifications.any { !it.isRead }
 
     var roomForTerms by remember { mutableStateOf<StudyRoom?>(null) }
     var roomForReservation by remember { mutableStateOf<StudyRoom?>(null) }
@@ -103,7 +108,7 @@ fun InicioScreen(
                 }
 
                 // Notification Icon
-                Box {
+                Box(modifier = Modifier.clickable { onNotificationClick() }) {
                     Surface(
                         modifier = Modifier.size(45.dp),
                         shape = CircleShape,
@@ -117,14 +122,16 @@ fun InicioScreen(
                             )
                         }
                     }
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(Color.Red)
-                            .align(Alignment.TopEnd)
-                            .offset(x = (-2).dp, y = 2.dp)
-                    )
+                    if (notifications.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (hasUnread) Color.Red else Color.Transparent)
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-2).dp, y = 2.dp)
+                        )
+                    }
                 }
             }
         }

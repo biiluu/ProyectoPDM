@@ -16,7 +16,7 @@ import androidx.navigation.NavController
 
 
 @Composable
-fun MainScreen(carnet: String, onLogout: () -> Unit,navController: NavController) {
+fun MainScreen(carnet: String, onLogout: () -> Unit, navController: NavController) {
     var selectedItem by remember { mutableIntStateOf(0) }
     var filterFloor by remember { mutableIntStateOf(0) } // 0 means all floors
     
@@ -62,9 +62,12 @@ fun MainScreen(carnet: String, onLogout: () -> Unit,navController: NavController
                     onFloorClick = { floor: Int ->
                         filterFloor = floor
                         selectedItem = 1
+                    },
+                    onNotificationClick = {
+                        navController.navigate("notifications/$carnet")
                     }
                 )
-                1 -> ExplorarScreen(carnet = carnet,initialFloor = filterFloor)
+                1 -> ExplorarScreen(carnet = carnet, initialFloor = filterFloor)
                 2 -> ReservasScreen(navController = navController, carnet = carnet)
                 3 -> PerfilScreen(carnet = carnet, onLogout = onLogout, navController = navController)
             }

@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.proyectopdm.MainActivity
 import com.example.proyectopdm.data.AppDataBase
+import com.example.proyectopdm.data.entities.Notification
 import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.entities.ReservationWithRoom
 import com.example.proyectopdm.data.repository.ReservationRepository
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.first
 
 class ReservationViewModel(application: Application) : AndroidViewModel(application) {
     private val reservationRepository: ReservationRepository
+    private val notificationDao = AppDataBase.getDatabase(application).notificationDao()
 
     var errorMessage by mutableStateOf<String?>(null)
     var successMessage by mutableStateOf<String?>(null)
@@ -51,6 +53,9 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         return reservationRepository.getReservationsWithRoomByUser(carnet)
     }
 
+    /**
+     * Cancela una reserva a petición del usuario.
+     */
     fun cancelReservation(reservation: Reservation) {
         viewModelScope.launch {
             val canceledReservation = reservation.copy(status = "CANCELADA_USUARIO")
@@ -59,6 +64,9 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /**
+     * Confirma la asistencia del usuario a la sala (Check-in).
+     */
     fun confirmAttendance(reservation: Reservation) {
         viewModelScope.launch {
             val confirmedReservation = reservation.copy(status = "CONFIRMADA")
@@ -67,6 +75,10 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    /**
+     * Revisa y cancela automáticamente las reservas que no registraron asistencia
+     * después de 15 minutos de la hora de inicio.
+     */
     fun checkAndCancelOverdueReservations(carnet: String) {
         viewModelScope.launch {
             val now = LocalTime.now()
@@ -247,15 +259,26 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
 
                 // --- SISTEMA DE NOTIFICACIONES ---
                 val notificationHelper = NotificationHelper(getApplication())
+                val notificationTitle = "Reserva Confirmada"
+                val notificationMessage = "Has reservado ${room.name} para el $date a las $startTime."
                 
                 // 1. Notificación inmediata de confirmación
                 notificationHelper.showNotification(
-                    "Reserva Confirmada",
-                    "Has reservado ${room.name} para el $date a las $startTime.",
+                    notificationTitle,
+                    notificationMessage,
                     System.currentTimeMillis().toInt()
                 )
 
-                // 2. Programar notificaciones futuras
+                // 2. Guardar en el historial de la DB (Notificación Inmediata)
+                notificationDao.insertNotification(
+                    Notification(
+                        userCarnet = carnet,
+                        title = notificationTitle,
+                        message = notificationMessage
+                    )
+                )
+
+                // 3. Programar notificaciones futuras
                 val formatterFull = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                 val resDateTime = LocalDateTime.parse("$date $startTime", formatterFull)
                 val millis = resDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -268,7 +291,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                         "Recordatorio de Reserva",
                         "Tu reserva en ${room.name} inicia en 1 hora.",
                         (millis / 1000).toInt() + 1,
-                        isExactAlarm = false
+                        isExactAlarm = false,
+                        userCarnet = carnet
                     )
                 }
 
@@ -279,7 +303,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                         "Inicio de Reserva",
                         "Tu tiempo en ${room.name} ha comenzado. ¡No olvides hacer check-in!",
                         (millis / 1000).toInt() + 2,
-                        isExactAlarm = true
+                        isExactAlarm = true,
+                        userCarnet = carnet
                     )
                 }
 
@@ -291,13 +316,14 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    private fun scheduleNotification(timeInMillis: Long, title: String, message: String, notificationId: Int, isExactAlarm: Boolean) {
+    private fun scheduleNotification(timeInMillis: Long, title: String, message: String, notificationId: Int, isExactAlarm: Boolean, userCarnet: String) {
         val context = getApplication<Application>()
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, ReservationReceiver::class.java).apply {
             putExtra("title", title)
             putExtra("message", message)
             putExtra("id", notificationId)
+            putExtra("userCarnet", userCarnet)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
