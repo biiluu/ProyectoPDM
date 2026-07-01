@@ -1,17 +1,28 @@
 package com.example.proyectopdm.viewmodel
 
+import android.app.AlarmManager
 import android.app.Application
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.proyectopdm.MainActivity
 import com.example.proyectopdm.data.AppDataBase
 import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.entities.ReservationWithRoom
 import com.example.proyectopdm.data.repository.ReservationRepository
+import com.example.proyectopdm.util.NotificationHelper
+import com.example.proyectopdm.util.ReservationReceiver
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.DayOfWeek
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -40,9 +51,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         return reservationRepository.getReservationsWithRoomByUser(carnet)
     }
 
-    /**
-     * Cancela una reserva a petición del usuario.
-     */
     fun cancelReservation(reservation: Reservation) {
         viewModelScope.launch {
             val canceledReservation = reservation.copy(status = "CANCELADA_USUARIO")
@@ -51,9 +59,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    /**
-     * Confirma la asistencia del usuario a la sala (Check-in).
-     */
     fun confirmAttendance(reservation: Reservation) {
         viewModelScope.launch {
             val confirmedReservation = reservation.copy(status = "CONFIRMADA")
@@ -62,10 +67,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    /**
-     * Revisa y cancela automáticamente las reservas que no registraron asistencia
-     * después de 15 minutos de la hora de inicio.
-     */
     fun checkAndCancelOverdueReservations(carnet: String) {
         viewModelScope.launch {
             val now = LocalTime.now()
@@ -80,7 +81,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     val resStartTime = try { LocalTime.parse(res.startTime, formatter) } catch(e: Exception) { null }
                     
                     if (resStartTime != null) {
-                        // Si la fecha es anterior a hoy, o es hoy y ya pasaron más de 15 minutos
                         val isPastDay = resDate < today
                         val isTodayOverdue = resDate == today && now.isAfter(resStartTime.plusMinutes(15))
                         
@@ -109,7 +109,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         val isSaturday = localDate.dayOfWeek == DayOfWeek.SATURDAY
 
         var currentSlot = LocalTime.of(7, 0)
-        // Límite de inicio según el día
         val lastSlotTime = if (isSaturday) LocalTime.of(11, 30) else LocalTime.of(18, 30)
 
         val roomReservations = reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
@@ -117,17 +116,13 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
             .filter { it.date == date && !it.status.contains("CANCELADA") }
 
         while (!currentSlot.isAfter(lastSlotTime)) {
-            // BLOQUEO DE TIEMPO PASADO: Si es hoy, no mostrar horas que ya pasaron
             if (localDate == today && currentSlot.isBefore(now)) {
                 currentSlot = currentSlot.plusMinutes(30)
                 continue
             }
 
             var isOccupied = false
-
-            // Verificar si la SALA está ocupada
             for (res in roomReservations) {
-                // Liberamos el espacio si fue cancelada por el usuario o por inasistencia
                 if (res.status == "CANCELADA_USUARIO" || res.status == "CANCELADA_INASISTENCIA") continue
 
                 val resStart = LocalTime.parse(res.startTime, formatter)
@@ -137,7 +132,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
 
-            // Verificar si el USUARIO ya tiene algo reservado a esa hora
             if (!isOccupied) {
                 for (res in userActiveReservations) {
                     val resStart = LocalTime.parse(res.startTime, formatter)
@@ -185,28 +179,24 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                 val today = LocalDate.now()
                 val now = LocalTime.now()
 
-                // 1. Validar que no sea una fecha pasada
                 if (localDate.isBefore(today)) {
                     errorMessage = "No puedes reservar en una fecha pasada."
                     isLoading = false
                     return@launch
                 }
 
-                // 2. Validar que no sea una hora pasada (si es hoy)
                 if (localDate == today && newStart.isBefore(now)) {
                     errorMessage = "No puedes reservar un horario que ya pasó."
                     isLoading = false
                     return@launch
                 }
 
-                // 3. Validar que la hora de inicio sea antes que la de fin
                 if (!newStart.isBefore(newEnd)) {
                     errorMessage = "La hora de inicio debe ser anterior a la hora de fin."
                     isLoading = false
                     return@launch
                 }
                 
-                // 4. Validaciones de horario según el día (Horarios CRAI)
                 when (localDate.dayOfWeek) {
                     DayOfWeek.SATURDAY -> {
                         if (newEnd.isAfter(LocalTime.of(12, 0))) {
@@ -254,11 +244,87 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
 
                 reservationRepository.insertReservation(newReservation)
                 successMessage = "¡Reserva realizada con éxito!"
+
+                // --- SISTEMA DE NOTIFICACIONES ---
+                val notificationHelper = NotificationHelper(getApplication())
+                
+                // 1. Notificación inmediata de confirmación
+                notificationHelper.showNotification(
+                    "Reserva Confirmada",
+                    "Has reservado ${room.name} para el $date a las $startTime.",
+                    System.currentTimeMillis().toInt()
+                )
+
+                // 2. Programar notificaciones futuras
+                val formatterFull = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                val resDateTime = LocalDateTime.parse("$date $startTime", formatterFull)
+                val millis = resDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+                // Notificación 1 hora antes
+                val oneHourBefore = millis - (60 * 60 * 1000)
+                if (oneHourBefore > System.currentTimeMillis()) {
+                    scheduleNotification(
+                        oneHourBefore,
+                        "Recordatorio de Reserva",
+                        "Tu reserva en ${room.name} inicia en 1 hora.",
+                        (millis / 1000).toInt() + 1,
+                        isExactAlarm = false
+                    )
+                }
+
+                // Notificación al momento de inicio (Usa setAlarmClock para máxima precisión)
+                if (millis > System.currentTimeMillis()) {
+                    scheduleNotification(
+                        millis,
+                        "Inicio de Reserva",
+                        "Tu tiempo en ${room.name} ha comenzado. ¡No olvides hacer check-in!",
+                        (millis / 1000).toInt() + 2,
+                        isExactAlarm = true
+                    )
+                }
+
             } catch (e: Exception) {
                 errorMessage = "Error al procesar la reserva: ${e.message}"
             } finally {
                 isLoading = false
             }
+        }
+    }
+
+    private fun scheduleNotification(timeInMillis: Long, title: String, message: String, notificationId: Int, isExactAlarm: Boolean) {
+        val context = getApplication<Application>()
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ReservationReceiver::class.java).apply {
+            putExtra("title", title)
+            putExtra("message", message)
+            putExtra("id", notificationId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        try {
+            if (isExactAlarm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                // setAlarmClock es lo más fiable para despertar al sistema
+                val mainActivityIntent = Intent(context, MainActivity::class.java)
+                val mainPendingIntent = PendingIntent.getActivity(context, 0, mainActivityIntent, PendingIntent.FLAG_IMMUTABLE)
+                val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, mainPendingIntent)
+                alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                Log.d("ReservationVM", "Alarma programada como Reloj para: $timeInMillis")
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                }
+            }
+        } catch (e: SecurityException) {
+            Log.e("ReservationVM", "Error de seguridad al programar alarma: ${e.message}")
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
         }
     }
 }
