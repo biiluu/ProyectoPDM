@@ -1,5 +1,6 @@
 package com.example.proyectopdm.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -20,25 +21,24 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyectopdm.R
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.ui.theme.*
-import com.example.proyectopdm.viewmodel.ProfileViewModel
-import com.example.proyectopdm.viewmodel.StudyRoomViewModel
-import com.example.proyectopdm.viewmodel.TermViewModel
+import com.example.proyectopdm.viewmodel.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import androidx.compose.runtime.setValue
-import com.example.proyectopdm.viewmodel.NotificationViewModel
-import com.example.proyectopdm.viewmodel.ReservationViewModel
 
 @Composable
 fun InicioScreen(
@@ -69,167 +69,134 @@ fun InicioScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LightGray)
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Header (HUD)
-        Box(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(DarkBlue)
-                .padding(horizontal = 20.dp, vertical = 32.dp)
+                .fillMaxSize()
+                .background(LightGray)
+                .verticalScroll(rememberScrollState())
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+            // Header (HUD)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkBlue)
+                    .padding(horizontal = 20.dp, vertical = 32.dp)
             ) {
-                Column {
-                    Text(
-                        text = "Bienvenido de vuelta",
-                        color = Color.White.copy(alpha = 0.7f),
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = user?.name ?: "Usuario",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = currentDate,
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 14.sp
-                    )
-                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column {
+                        Text(
+                            text = "Bienvenido de vuelta",
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                        Text(
+                            text = user?.name ?: "Usuario",
+                            color = Color.White,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = currentDate,
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                    }
 
-                // Notification Icon
-                Box(modifier = Modifier.clickable { onNotificationClick() }) {
-                    Surface(
-                        modifier = Modifier.size(45.dp),
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.15f)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notificaciones",
-                                tint = Color.White
+                    // Notification Icon
+                    Box(modifier = Modifier.clickable { onNotificationClick() }) {
+                        Surface(
+                            modifier = Modifier.size(45.dp),
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.15f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notificaciones",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        if (notifications.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(if (hasUnread) Color.Red else Color.Transparent)
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = (-2).dp, y = 2.dp)
                             )
                         }
                     }
-                    if (notifications.isNotEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .clip(CircleShape)
-                                .background(if (hasUnread) Color.Red else Color.Transparent)
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-2).dp, y = 2.dp)
-                        )
-                    }
                 }
             }
-        }
 
-        // Reservation Card
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 20.dp)
-                .offset(y = (-20).dp)
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                shadowElevation = 4.dp
+            // Section: Disponibles ahora
+            SectionHeader(title = "Disponibles ahora", onSeeMoreClick = { onFloorClick(0) })
+
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "No tienes reservas próximas",
-                        color = Color.Gray,
-                        fontSize = 16.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Hacer una reserva >",
-                        color = AccentBlue,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        modifier = Modifier.clickable { onFloorClick(0) } // Va a explorar todas
-                    )
+                items(availableRooms.take(10)) { room ->
+                    RoomCard(room = room, onClick = { roomForTerms = room })
                 }
             }
-        }
 
-        // Section: Disponibles ahora
-        SectionHeader(title = "Disponibles ahora", onSeeMoreClick = { onFloorClick(0) })
+            Spacer(modifier = Modifier.height(24.dp))
 
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(availableRooms.take(10)) { room ->
-                RoomCard(room = room, onClick = { roomForTerms = room })
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Section: Nuestras Instalaciones
-        Text(
-            text = "Nuestras Instalaciones",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 20.dp),
-            color = Color.Black
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Resumen por niveles
-        FloorSummaryCard(
-            level = 1,
-            description = "3 Salas de estudio",
-            roomsCount = 3,
-            onClick = { onFloorClick(1) })
-        Spacer(modifier = Modifier.height(8.dp))
-        FloorSummaryCard(
-            level = 2,
-            description = "3 Salas y 8 Cubículos individuales",
-            roomsCount = 11,
-            onClick = { onFloorClick(2) })
-        Spacer(modifier = Modifier.height(8.dp))
-        FloorSummaryCard(
-            level = 3,
-            description = "4 Salas, Taller Digital y Recreativa",
-            roomsCount = 6,
-            onClick = { onFloorClick(3) })
-
-        Spacer(modifier = Modifier.height(32.dp))
-    }
-
-    if (roomForTerms != null) {
-        TermsBottomSheet(
-            roomName = roomForTerms!!.name,
-            carnet = carnet,
-            termViewModel = termViewModel,
-            onDismiss = { roomForTerms = null },
-            onTermsAccepted = {
-                val room = roomForTerms
-                roomForTerms = null
-                roomForReservation = room
-            }
+            // Section: Nuestras Instalaciones
+            Text(
+                text = "Nuestras Instalaciones",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 20.dp),
+                color = Color.Black
             )
-    }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Resumen por niveles
+            FloorSummaryCard(
+                level = 1,
+                description = "3 Salas de estudio",
+                roomsCount = 3,
+                onClick = { onFloorClick(1) })
+            Spacer(modifier = Modifier.height(8.dp))
+            FloorSummaryCard(
+                level = 2,
+                description = "3 Salas y 8 Cubículos individuales",
+                roomsCount = 11,
+                onClick = { onFloorClick(2) })
+            Spacer(modifier = Modifier.height(8.dp))
+            FloorSummaryCard(
+                level = 3,
+                description = "4 Salas, Taller Digital y Recreativa",
+                roomsCount = 6,
+                onClick = { onFloorClick(3) })
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+
+        if (roomForTerms != null) {
+            TermsBottomSheet(
+                roomName = roomForTerms!!.name,
+                carnet = carnet,
+                termViewModel = termViewModel,
+                onDismiss = { roomForTerms = null },
+                onTermsAccepted = {
+                    val room = roomForTerms
+                    roomForTerms = null
+                    roomForReservation = room
+                }
+            )
+        }
 
         if (roomForReservation != null) {
             ReservationBottomSheet(
@@ -239,10 +206,7 @@ fun InicioScreen(
                 onDismiss = { roomForReservation = null }
             )
         }
-
     }
-
-
 }
 
 @Composable
@@ -281,6 +245,13 @@ fun FloorSummaryCard(level: Int, description: String, roomsCount: Int, onClick: 
 
 @Composable
 fun RoomCard(room: StudyRoom, onClick: () -> Unit) {
+    val imageRes = when {
+        room.name.contains("Sala 1") -> R.drawable.sala_1
+        room.name.contains("Sala 2") -> R.drawable.sala_2
+        room.name.contains("Sala 3") -> R.drawable.sala_3
+        else -> null
+    }
+
     Surface(
         modifier = Modifier
             .width(260.dp)
@@ -297,6 +268,14 @@ fun RoomCard(room: StudyRoom, onClick: () -> Unit) {
                     .height(140.dp)
                     .background(Color(0xFFE2E8F0))
             ) {
+                if (imageRes != null) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
                 Surface(
                     color = SuccessGreenBg,
                     shape = RoundedCornerShape(8.dp),
