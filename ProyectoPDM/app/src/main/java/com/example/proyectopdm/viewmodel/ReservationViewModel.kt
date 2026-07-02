@@ -111,7 +111,7 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         errorMessage = null
     }
 
-    suspend fun getAvailableStartTimes(roomId: Int, date: String, userCarnet: String): List<String> {
+    suspend fun getAvailableStartTimes(roomId: Int, date: String, userCarnet: String, excludeReservationId: Int? = null): List<String> {
         val availableSlots = mutableListOf<String>()
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         
@@ -123,9 +123,14 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         var currentSlot = LocalTime.of(7, 0)
         val lastSlotTime = if (isSaturday) LocalTime.of(11, 30) else LocalTime.of(18, 30)
 
-        val roomReservations = reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
+        val roomReservations = if (excludeReservationId == null) {
+            reservationRepository.getActiveReservationsForRoomAndDate(roomId, date).first()
+        } else {
+            reservationRepository.getActiveReservationsForRoomAndDateExcluding(roomId, date, excludeReservationId).first()
+        }
+
         val userActiveReservations = reservationRepository.getReservationsByUser(userCarnet).first()
-            .filter { it.date == date && !it.status.contains("CANCELADA") }
+            .filter { it.date == date && !it.status.contains("CANCELADA") && it.id != (excludeReservationId ?: -1) }
 
         while (!currentSlot.isAfter(lastSlotTime)) {
             if (localDate == today && currentSlot.isBefore(now)) {
@@ -171,6 +176,30 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         endTime: String,
         peopleCount: Int
     ) {
+        validateAndProcessReservation(null, carnet, room, date, startTime, endTime, peopleCount)
+    }
+
+    fun editReservation(
+        reservationId: Int,
+        carnet: String,
+        room: StudyRoom,
+        date: String,
+        startTime: String,
+        endTime: String,
+        peopleCount: Int
+    ) {
+        validateAndProcessReservation(reservationId, carnet, room, date, startTime, endTime, peopleCount)
+    }
+
+    private fun validateAndProcessReservation(
+        reservationId: Int?,
+        carnet: String,
+        room: StudyRoom,
+        date: String,
+        startTime: String,
+        endTime: String,
+        peopleCount: Int
+    ) {
         errorMessage = null
         successMessage = null
         isLoading = true
@@ -186,7 +215,7 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                 val formatter = DateTimeFormatter.ofPattern("HH:mm")
                 val newStart = LocalTime.parse(startTime, formatter)
                 val newEnd = LocalTime.parse(endTime, formatter)
-                
+
                 val localDate = LocalDate.parse(date)
                 val today = LocalDate.now()
                 val now = LocalTime.now()
@@ -231,7 +260,11 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     }
                 }
 
-                val existingReservations = reservationRepository.getActiveReservationsForRoomAndDate(room.id, date).first()
+                val existingReservations = if (reservationId == null) {
+                    reservationRepository.getActiveReservationsForRoomAndDate(room.id, date).first()
+                } else {
+                    reservationRepository.getActiveReservationsForRoomAndDateExcluding(room.id, date, reservationId).first()
+                }
                 
                 val hasOverlap = existingReservations.any { existing ->
                     val existingStart = LocalTime.parse(existing.startTime, formatter)
@@ -245,31 +278,44 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     return@launch
                 }
 
-                val newReservation = Reservation(
-                    userCarnet = carnet,
-                    roomId = room.id,
-                    date = date,
-                    startTime = startTime,
-                    endTime = endTime,
-                    status = "PENDIENTE"
-                )
-
-                reservationRepository.insertReservation(newReservation)
-                successMessage = "¡Reserva realizada con éxito!"
+                if (reservationId == null) {
+                    val newReservation = Reservation(
+                        userCarnet = carnet,
+                        roomId = room.id,
+                        date = date,
+                        startTime = startTime,
+                        endTime = endTime,
+                        peopleCount = peopleCount,
+                        status = "PENDIENTE"
+                    )
+                    reservationRepository.insertReservation(newReservation)
+                    successMessage = "¡Reserva realizada con éxito!"
+                } else {
+                    val updatedReservation = Reservation(
+                        id = reservationId,
+                        userCarnet = carnet,
+                        roomId = room.id,
+                        date = date,
+                        startTime = startTime,
+                        endTime = endTime,
+                        peopleCount = peopleCount,
+                        status = "PENDIENTE"
+                    )
+                    reservationRepository.updateReservation(updatedReservation)
+                    successMessage = "¡Reserva actualizada con éxito!"
+                }
 
                 // --- SISTEMA DE NOTIFICACIONES ---
                 val notificationHelper = NotificationHelper(getApplication())
-                val notificationTitle = "Reserva Confirmada"
+                val notificationTitle = if (reservationId == null) "Reserva Confirmada" else "Reserva Actualizada"
                 val notificationMessage = "Has reservado ${room.name} para el $date a las $startTime."
-                
-                // 1. Notificación inmediata de confirmación
+
                 notificationHelper.showNotification(
                     notificationTitle,
                     notificationMessage,
                     System.currentTimeMillis().toInt()
                 )
 
-                // 2. Guardar en el historial de la DB (Notificación Inmediata)
                 notificationDao.insertNotification(
                     Notification(
                         userCarnet = carnet,
@@ -278,12 +324,10 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
 
-                // 3. Programar notificaciones futuras
                 val formatterFull = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
                 val resDateTime = LocalDateTime.parse("$date $startTime", formatterFull)
                 val millis = resDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-                // Notificación 1 hora antes
                 val oneHourBefore = millis - (60 * 60 * 1000)
                 if (oneHourBefore > System.currentTimeMillis()) {
                     scheduleNotification(
@@ -296,7 +340,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 }
 
-                // Notificación al momento de inicio (Usa setAlarmClock para máxima precisión)
                 if (millis > System.currentTimeMillis()) {
                     scheduleNotification(
                         millis,
@@ -335,7 +378,6 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
 
         try {
             if (isExactAlarm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                // setAlarmClock es lo más fiable para despertar al sistema
                 val mainActivityIntent = Intent(context, MainActivity::class.java)
                 val mainPendingIntent = PendingIntent.getActivity(context, 0, mainActivityIntent, PendingIntent.FLAG_IMMUTABLE)
                 val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, mainPendingIntent)

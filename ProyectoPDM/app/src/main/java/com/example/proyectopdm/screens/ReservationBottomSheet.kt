@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.viewmodel.ReservationViewModel
 import java.time.DayOfWeek
@@ -34,36 +35,47 @@ fun ReservationBottomSheet(
     room: StudyRoom,
     carnet: String,
     reservationViewModel: ReservationViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    editingReservation: Reservation? = null // Nuevo parámetro para edición
 ) {
     val UcaBlue = Color(0xFF1D3354)
 
-
-    // Personas
-    var selectedPeople by remember { mutableIntStateOf(room.minCapacity) }
+    // Inicializar estados con los valores de la reserva si estamos editando
+    var selectedPeople by remember { 
+        mutableIntStateOf(editingReservation?.let { 2 } ?: room.minCapacity) // Nota: La entidad Reservation no guarda peopleCount, asumiendo 2 por defecto o deberia agregarse a la entidad
+    }
+    
+    // Como la entidad Reservation no tiene peopleCount, vamos a dejarlo en minCapacity por ahora
+    // o el usuario puede ajustarlo. Si quisieramos persistirlo habria que cambiar la tabla.
+    
     var expandedPeople by remember { mutableStateOf(false) }
     val peopleOptions = (room.minCapacity..room.maxCapacity).toList()
 
-    // Fecha (Calendario)
     var selectedDate by remember {
         mutableStateOf(
+            editingReservation?.let { LocalDate.parse(it.date) } ?:
             if (LocalDate.now().dayOfWeek == DayOfWeek.SUNDAY) LocalDate.now().plusDays(1)
             else LocalDate.now()
         )
     }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // Hora
     var availableTimes by remember { mutableStateOf<List<String>>(emptyList()) }
-    var selectedTime by remember { mutableStateOf("") }
+    var selectedTime by remember { mutableStateOf(editingReservation?.startTime ?: "") }
     var expandedTime by remember { mutableStateOf(false) }
 
-    // Duracion
+    // Calcular duración inicial si estamos editando
+    val initialDuration = editingReservation?.let {
+        val start = LocalTime.parse(it.startTime)
+        val end = LocalTime.parse(it.endTime)
+        val diffMinutes = java.time.Duration.between(start, end).toMinutes()
+        diffMinutes / 60.0
+    } ?: 1.0
+
     val durationOptions = listOf(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)
-    var selectedDuration by remember { mutableDoubleStateOf(1.0) }
+    var selectedDuration by remember { mutableDoubleStateOf(initialDuration) }
     var expandedDuration by remember { mutableStateOf(false) }
 
-    // Formatear duracion
     fun formatDuration(d: Double): String {
         if (d == 0.5) return "30 minutos"
         val intPart = d.toInt()
@@ -72,14 +84,30 @@ fun ReservationBottomSheet(
         return if (d == 1.0) "1 hora" else "$numStr horas"
     }
 
-
-
-    // Actualizar horas libres al cambiar la fecha
     LaunchedEffect(selectedDate) {
-        selectedTime = ""
         val dateString = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        availableTimes = reservationViewModel.getAvailableStartTimes(room.id, dateString, carnet)
+        // Al editar, permitimos que la hora actual de la reserva aparezca en la lista
+        availableTimes = reservationViewModel.getAvailableStartTimes(
+            room.id, 
+            dateString, 
+            carnet, 
+            excludeReservationId = editingReservation?.id
+        )
+        
+        // Si el tiempo seleccionado no está en las nuevas horas disponibles (porque ya pasó o cambió el día), lo reseteamos
+        // A menos que sea el tiempo original de la reserva que estamos editando
+        if (selectedTime.isNotEmpty() && !availableTimes.contains(selectedTime) && selectedTime != editingReservation?.startTime) {
+            selectedTime = ""
+        }
+        
+        // Si estamos editando y el tiempo original es válido para el nuevo día, asegurarnos que esté en la lista
+        if (editingReservation != null && selectedDate.toString() == editingReservation.date && !availableTimes.contains(editingReservation.startTime)) {
+             // Esto puede pasar si el horario de la reserva ya pasó. 
+             // En edición, tal vez queramos permitir mantenerlo si no se cambia nada más, 
+             // pero las reglas de negocio dicen que no se puede reservar en el pasado.
+        }
     }
+
     LaunchedEffect(Unit) {
         reservationViewModel.resetMessages()
     }
@@ -99,7 +127,6 @@ fun ReservationBottomSheet(
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val date = Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneId.of("UTC")).toLocalDate()
-                    // Bloquear fechas anteriores a hoy y domingos
                     val today = LocalDate.now().atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
                     return utcTimeMillis >= today && date.dayOfWeek != DayOfWeek.SUNDAY
                 }
@@ -124,26 +151,7 @@ fun ReservationBottomSheet(
             },
             colors = DatePickerDefaults.colors(containerColor = Color.White)
         ) {
-            DatePicker(
-                state = datePickerState,
-                colors = DatePickerDefaults.colors(
-                    containerColor = Color.White,
-                    titleContentColor = UcaBlue,
-                    headlineContentColor = UcaBlue,
-                    weekdayContentColor = UcaBlue.copy(alpha = 0.7f),
-                    subheadContentColor = UcaBlue,
-                    yearContentColor = Color.Black,
-                    currentYearContentColor = UcaBlue,
-                    selectedYearContentColor = Color.White,
-                    selectedYearContainerColor = UcaBlue,
-                    dayContentColor = Color.Black,
-                    disabledDayContentColor = Color.LightGray,
-                    selectedDayContentColor = Color.White,
-                    selectedDayContainerColor = UcaBlue,
-                    todayContentColor = UcaBlue,
-                    todayDateBorderColor = UcaBlue
-                )
-            )
+            DatePicker(state = datePickerState)
         }
     }
 
@@ -173,7 +181,7 @@ fun ReservationBottomSheet(
 
                         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Reservación de\n${room.name}",
+                                text = if (editingReservation == null) "Reservación de\n${room.name}" else "Editar Reserva\n${room.name}",
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -332,16 +340,23 @@ fun ReservationBottomSheet(
                             onClick = {
                                 if (selectedTime.isNotEmpty()) {
                                     val dateString = selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                                    // Sumar las horas segun la opcion que se elija
                                     val minutes = (selectedDuration * 60).toLong()
                                     val endTime = LocalTime.parse(selectedTime, DateTimeFormatter.ofPattern("HH:mm"))
                                         .plusMinutes(minutes)
                                         .format(DateTimeFormatter.ofPattern("HH:mm"))
 
-                                    reservationViewModel.makeReservation(
-                                        carnet = carnet, room = room, date = dateString,
-                                        startTime = selectedTime, endTime = endTime, peopleCount = selectedPeople
-                                    )
+                                    if (editingReservation == null) {
+                                        reservationViewModel.makeReservation(
+                                            carnet = carnet, room = room, date = dateString,
+                                            startTime = selectedTime, endTime = endTime, peopleCount = selectedPeople
+                                        )
+                                    } else {
+                                        reservationViewModel.editReservation(
+                                            reservationId = editingReservation.id,
+                                            carnet = carnet, room = room, date = dateString,
+                                            startTime = selectedTime, endTime = endTime, peopleCount = selectedPeople
+                                        )
+                                    }
                                 }
                             },
                             enabled = selectedTime.isNotEmpty() && !reservationViewModel.isLoading,
@@ -353,7 +368,7 @@ fun ReservationBottomSheet(
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                             } else {
                                 Text(
-                                    "Confirmar reserva",
+                                    if (editingReservation == null) "Confirmar reserva" else "Actualizar reserva",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )

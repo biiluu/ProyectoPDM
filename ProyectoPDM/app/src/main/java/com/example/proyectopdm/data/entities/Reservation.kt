@@ -28,5 +28,6 @@ data class Reservation(
     val date: String,
     val startTime: String,
     val endTime: String,
+    val peopleCount: Int,
     val status: String
 )

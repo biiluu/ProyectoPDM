@@ -23,6 +23,9 @@ interface ReservationDao {
     @Query("SELECT * FROM reservations WHERE roomId = :roomId AND date = :date AND status NOT IN ('CANCELADA_INASISTENCIA', 'CANCELADA_USUARIO')")
     fun getReservationsForRoomAndDate(roomId: Int, date: String): Flow<List<Reservation>>
 
+    @Query("SELECT * FROM reservations WHERE roomId = :roomId AND date = :date AND id != :excludeId AND status NOT IN ('CANCELADA_INASISTENCIA', 'CANCELADA_USUARIO')")
+    fun getReservationsForRoomAndDateExcluding(roomId: Int, date: String, excludeId: Int): Flow<List<Reservation>>
+
     @Query("SELECT * FROM reservations WHERE date = :date AND status NOT IN ('CANCELADA_INASISTENCIA', 'CANCELADA_USUARIO')")
     fun getAllActiveReservationsByDate(date: String): Flow<List<Reservation>>
 

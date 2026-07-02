@@ -13,7 +13,7 @@ import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.data.entities.User
 
-@Database(entities = [User::class, StudyRoom::class, Reservation::class, Notification::class], version = 7, exportSchema = false)
+@Database(entities = [User::class, StudyRoom::class, Reservation::class, Notification::class], version = 8, exportSchema = false)
 abstract class AppDataBase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun studyRoomDao(): StudyRoomDao

@@ -26,6 +26,10 @@ class ReservationRepository(private val reservationDao: ReservationDao) {
         return reservationDao.getReservationsForRoomAndDate(roomId, date)
     }
 
+    fun getActiveReservationsForRoomAndDateExcluding(roomId: Int, date: String, excludeId: Int): Flow<List<Reservation>> {
+        return reservationDao.getReservationsForRoomAndDateExcluding(roomId, date, excludeId)
+    }
+
     suspend fun updateReservation(reservation: Reservation) {
         reservationDao.updateReservation(reservation)
     }

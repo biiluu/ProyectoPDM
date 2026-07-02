@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -46,6 +47,7 @@ fun ReservasScreen(
     }
 
     var reservaAEliminar by remember { mutableStateOf<Reservation?>(null) }
+    var reservaAEditar by remember { mutableStateOf<ReservationWithRoom?>(null) }
     var mostrarDialogo by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -70,27 +72,32 @@ fun ReservasScreen(
             )
         }
     ) { paddingValues ->
-        if (reservasActivas.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text("No tienes reservas activas.", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 16.dp)
-            ) {
-                items(reservasActivas) { item ->
-                    ReservaCard(
-                        reservationWithRoom = item, 
-                        onDeleteClick = {
-                            reservaAEliminar = item.reservation
-                            mostrarDialogo = true
-                        },
-                        onConfirmAttendance = {
-                            viewModel.confirmAttendance(item.reservation)
-                        }
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            if (reservasActivas.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No tienes reservas activas.", color = Color.Gray)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp)
+                ) {
+                    items(reservasActivas) { item ->
+                        ReservaCard(
+                            reservationWithRoom = item, 
+                            onDeleteClick = {
+                                reservaAEliminar = item.reservation
+                                mostrarDialogo = true
+                            },
+                            onEditClick = {
+                                reservaAEditar = item
+                            },
+                            onConfirmAttendance = {
+                                viewModel.confirmAttendance(item.reservation)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -112,6 +119,16 @@ fun ReservasScreen(
                 }
             )
         }
+
+        if (reservaAEditar != null) {
+            ReservationBottomSheet(
+                room = reservaAEditar!!.studyRoom,
+                carnet = carnet,
+                reservationViewModel = viewModel,
+                onDismiss = { reservaAEditar = null },
+                editingReservation = reservaAEditar!!.reservation
+            )
+        }
     }
 }
 
@@ -119,6 +136,7 @@ fun ReservasScreen(
 fun ReservaCard(
     reservationWithRoom: ReservationWithRoom, 
     onDeleteClick: () -> Unit,
+    onEditClick: () -> Unit,
     onConfirmAttendance: () -> Unit
 ) {
     val reserva = reservationWithRoom.reservation
@@ -143,7 +161,6 @@ fun ReservaCard(
             
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    // Lógica inteligente para mostrar el nombre y nivel sin redundancias
                     val displayName = if (room.name.contains("Nivel", ignoreCase = true)) {
                         room.name
                     } else {
@@ -179,8 +196,15 @@ fun ReservaCard(
                     }
                 }
                 
-                IconButton(onClick = onDeleteClick) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red.copy(alpha = 0.7f))
+                Row {
+                    if (reserva.status == "PENDIENTE") {
+                        IconButton(onClick = onEditClick) {
+                            Icon(Icons.Default.Edit, contentDescription = "Editar", tint = Color(0xFF1D3354).copy(alpha = 0.7f))
+                        }
+                    }
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = Color.Red.copy(alpha = 0.7f))
+                    }
                 }
             }
 
