@@ -1,5 +1,6 @@
 package com.example.proyectopdm.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,11 +14,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.proyectopdm.R
 import com.example.proyectopdm.data.entities.StudyRoom
 import com.example.proyectopdm.ui.theme.*
 import com.example.proyectopdm.viewmodel.ReservationViewModel
@@ -143,6 +148,14 @@ fun FloorChip(label: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 fun ExploreRoomCard(room: StudyRoom, onReserveClick: () -> Unit) {
+    // Lógica para asignar imagen según el nombre de la sala (nombres en minúsculas)
+    val imageRes = when {
+        room.name.contains("Sala 1") -> R.drawable.sala_1
+        room.name.contains("Sala 2") -> R.drawable.sala_2
+        room.name.contains("Sala 3") -> R.drawable.sala_3
+        else -> null
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -155,18 +168,28 @@ fun ExploreRoomCard(room: StudyRoom, onReserveClick: () -> Unit) {
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Thumbnail placeholder
+            // Miniatura con imagen o icono por defecto
             Box(
                 modifier = Modifier
                     .size(80.dp)
-                    .background(Color(0xFFE2E8F0), RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFE2E8F0)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = Color.Gray
-                )
+                if (imageRes != null) {
+                    Image(
+                        painter = painterResource(id = imageRes),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = Color.Gray
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
