@@ -36,8 +36,9 @@ fun ReservasScreen(
 ) {
     val listaReservasWithRoom by viewModel.getUserReservationsWithRoomFlow(carnet).collectAsState(initial = emptyList())
     
-    // Ejecutar limpieza de inasistencias al entrar
+    // Sincronización con la API y limpieza de inasistencias al entrar
     LaunchedEffect(Unit) {
+        viewModel.syncUserReservations(carnet)
         viewModel.checkAndCancelOverdueReservations(carnet)
     }
 

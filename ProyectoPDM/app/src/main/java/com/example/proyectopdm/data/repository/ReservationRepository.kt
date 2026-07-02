@@ -3,9 +3,38 @@ package com.example.proyectopdm.data.repository
 import com.example.proyectopdm.data.dao.ReservationDao
 import com.example.proyectopdm.data.entities.Reservation
 import com.example.proyectopdm.data.entities.ReservationWithRoom
+import com.example.proyectopdm.data.remote.RetrofitClient
 import kotlinx.coroutines.flow.Flow
 
 class ReservationRepository(private val reservationDao: ReservationDao) {
+    
+    suspend fun syncReservationsForRoom(roomId: Int, date: String) {
+        try {
+            val reservationsFromApi = RetrofitClient.studyRoomApiService.getReservationsForRoom(roomId, date)
+            reservationDao.insertReservations(reservationsFromApi)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun syncAllActiveReservations(date: String) {
+        try {
+            val reservationsFromApi = RetrofitClient.studyRoomApiService.getActiveReservationsByDate(date)
+            reservationDao.insertReservations(reservationsFromApi)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun syncUserReservations(carnet: String) {
+        try {
+            val reservationsFromApi = RetrofitClient.studyRoomApiService.getReservationsByUser(carnet)
+            reservationDao.insertReservations(reservationsFromApi)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     suspend fun insertReservation(reservation: Reservation) {
         reservationDao.insertReservation(reservation)
     }
