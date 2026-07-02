@@ -155,16 +155,14 @@ fun PerfilScreen(
                 onClick = { navController.navigate("notifications/$carnet") }
             )
             Spacer(modifier = Modifier.height(8.dp))
-            ProfileMenuItem(
-                label = "Privacidad",
-                onClick = { navController.navigate("privacy") }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
             ProfileMenuItem(label = "Ayuda y soporte",
                 onClick = { navController.navigate("help") }
             )
             Spacer(modifier = Modifier.height(8.dp))
-            ProfileMenuItem(label = "Acerca de")
+            ProfileMenuItem(
+                label = "Acerca de",
+                onClick = { navController.navigate("about") }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 

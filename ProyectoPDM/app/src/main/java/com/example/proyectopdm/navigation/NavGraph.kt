@@ -76,11 +76,11 @@ fun NavGraph() {
                 onBack = { navController.popBackStack() }
             )
         }
-        composable("privacy") {
-            PrivacyScreen(navController = navController)
-        }
         composable("help") {
             HelpSupportScreen(navController = navController)
+        }
+        composable("about") {
+            AboutScreen(navController = navController)
         }
     }
 }
