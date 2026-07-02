@@ -18,6 +18,7 @@ import com.example.proyectopdm.data.entities.ReservationWithRoom
 import com.example.proyectopdm.data.repository.ReservationRepository
 import com.example.proyectopdm.util.NotificationHelper
 import com.example.proyectopdm.util.ReservationReceiver
+import com.example.proyectopdm.data.remote.RetrofitClient
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.LocalDate
@@ -54,31 +55,49 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
-     * Cancela una reserva a petición del usuario.
+     * Sincroniza las reservas del usuario con el servidor.
      */
+    fun syncUserReservations(carnet: String) {
+        viewModelScope.launch {
+            reservationRepository.syncUserReservations(carnet)
+        }
+    }
+
     fun cancelReservation(reservation: Reservation) {
         viewModelScope.launch {
-            val canceledReservation = reservation.copy(status = "CANCELADA_USUARIO")
-            reservationRepository.updateReservation(canceledReservation)
-            successMessage = "Reserva cancelada exitosamente."
+            try {
+                val response = RetrofitClient.studyRoomApiService.updateReservationStatus(reservation.id, "CANCELADA_USUARIO")
+                if (response.isSuccessful) {
+                    val canceledReservation = reservation.copy(status = "CANCELADA_USUARIO")
+                    reservationRepository.updateReservation(canceledReservation)
+                    successMessage = "Reserva cancelada exitosamente."
+                } else {
+                    errorMessage = "Error al cancelar en el servidor: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error de conexión: ${e.message}"
+                // Opcionalmente permitir cancelación local si falla la red
+            }
         }
     }
 
-    /**
-     * Confirma la asistencia del usuario a la sala (Check-in).
-     */
     fun confirmAttendance(reservation: Reservation) {
         viewModelScope.launch {
-            val confirmedReservation = reservation.copy(status = "CONFIRMADA")
-            reservationRepository.updateReservation(confirmedReservation)
-            successMessage = "Asistencia confirmada. ¡Disfruta de la sala!"
+            try {
+                val response = RetrofitClient.studyRoomApiService.updateReservationStatus(reservation.id, "CONFIRMADA")
+                if (response.isSuccessful) {
+                    val confirmedReservation = reservation.copy(status = "CONFIRMADA")
+                    reservationRepository.updateReservation(confirmedReservation)
+                    successMessage = "Asistencia confirmada. ¡Disfruta de la sala!"
+                } else {
+                    errorMessage = "Error al confirmar en el servidor: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error de conexión: ${e.message}"
+            }
         }
     }
 
-    /**
-     * Revisa y cancela automáticamente las reservas que no registraron asistencia
-     * después de 15 minutos de la hora de inicio.
-     */
     fun checkAndCancelOverdueReservations(carnet: String) {
         viewModelScope.launch {
             val now = LocalTime.now()
@@ -99,6 +118,7 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                         if (isPastDay || isTodayOverdue) {
                             val updated = res.copy(status = "CANCELADA_INASISTENCIA")
                             reservationRepository.updateReservation(updated)
+                            // En una implementación ideal, también notificarías al servidor aquí
                         }
                     }
                 }
@@ -112,6 +132,8 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     suspend fun getAvailableStartTimes(roomId: Int, date: String, userCarnet: String): List<String> {
+        reservationRepository.syncReservationsForRoom(roomId, date)
+        
         val availableSlots = mutableListOf<String>()
         val formatter = DateTimeFormatter.ofPattern("HH:mm")
         
@@ -254,58 +276,17 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
                     status = "PENDIENTE"
                 )
 
-                reservationRepository.insertReservation(newReservation)
-                successMessage = "¡Reserva realizada con éxito!"
-
-                // --- SISTEMA DE NOTIFICACIONES ---
-                val notificationHelper = NotificationHelper(getApplication())
-                val notificationTitle = "Reserva Confirmada"
-                val notificationMessage = "Has reservado ${room.name} para el $date a las $startTime."
-                
-                // 1. Notificación inmediata de confirmación
-                notificationHelper.showNotification(
-                    notificationTitle,
-                    notificationMessage,
-                    System.currentTimeMillis().toInt()
-                )
-
-                // 2. Guardar en el historial de la DB (Notificación Inmediata)
-                notificationDao.insertNotification(
-                    Notification(
-                        userCarnet = carnet,
-                        title = notificationTitle,
-                        message = notificationMessage
-                    )
-                )
-
-                // 3. Programar notificaciones futuras
-                val formatterFull = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-                val resDateTime = LocalDateTime.parse("$date $startTime", formatterFull)
-                val millis = resDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-                // Notificación 1 hora antes
-                val oneHourBefore = millis - (60 * 60 * 1000)
-                if (oneHourBefore > System.currentTimeMillis()) {
-                    scheduleNotification(
-                        oneHourBefore,
-                        "Recordatorio de Reserva",
-                        "Tu reserva en ${room.name} inicia en 1 hora.",
-                        (millis / 1000).toInt() + 1,
-                        isExactAlarm = false,
-                        userCarnet = carnet
-                    )
-                }
-
-                // Notificación al momento de inicio (Usa setAlarmClock para máxima precisión)
-                if (millis > System.currentTimeMillis()) {
-                    scheduleNotification(
-                        millis,
-                        "Inicio de Reserva",
-                        "Tu tiempo en ${room.name} ha comenzado. ¡No olvides hacer check-in!",
-                        (millis / 1000).toInt() + 2,
-                        isExactAlarm = true,
-                        userCarnet = carnet
-                    )
+                try {
+                    val response = RetrofitClient.studyRoomApiService.createReservation(newReservation)
+                    if (response.isSuccessful) {
+                        reservationRepository.insertReservation(newReservation)
+                        successMessage = "¡Reserva realizada con éxito!"
+                        triggerNotifications(carnet, room, date, startTime)
+                    } else {
+                        errorMessage = "El servidor rechazó la reserva: ${response.message()}"
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Error de conexión con el servidor. Inténtalo de nuevo."
                 }
 
             } catch (e: Exception) {
@@ -313,6 +294,31 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
             } finally {
                 isLoading = false
             }
+        }
+    }
+
+    private suspend fun triggerNotifications(carnet: String, room: StudyRoom, date: String, startTime: String) {
+        val notificationHelper = NotificationHelper(getApplication())
+        val notificationTitle = "Reserva Confirmada"
+        val notificationMessage = "Has reservado ${room.name} para el $date a las $startTime."
+        
+        notificationHelper.showNotification(notificationTitle, notificationMessage, System.currentTimeMillis().toInt())
+
+        notificationDao.insertNotification(
+            Notification(userCarnet = carnet, title = notificationTitle, message = notificationMessage)
+        )
+
+        val formatterFull = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        val resDateTime = LocalDateTime.parse("$date $startTime", formatterFull)
+        val millis = resDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val oneHourBefore = millis - (60 * 60 * 1000)
+        if (oneHourBefore > System.currentTimeMillis()) {
+            scheduleNotification(oneHourBefore, "Recordatorio de Reserva", "Tu reserva en ${room.name} inicia en 1 hora.", (millis / 1000).toInt() + 1, false, carnet)
+        }
+
+        if (millis > System.currentTimeMillis()) {
+            scheduleNotification(millis, "Inicio de Reserva", "Tu tiempo en ${room.name} ha comenzado. ¡No olvides hacer check-in!", (millis / 1000).toInt() + 2, true, carnet)
         }
     }
 
@@ -327,29 +333,20 @@ class ReservationViewModel(application: Application) : AndroidViewModel(applicat
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            notificationId,
-            intent,
+            context, notificationId, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
         try {
-            if (isExactAlarm && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                // setAlarmClock es lo más fiable para despertar al sistema
+            if (isExactAlarm) {
                 val mainActivityIntent = Intent(context, MainActivity::class.java)
                 val mainPendingIntent = PendingIntent.getActivity(context, 0, mainActivityIntent, PendingIntent.FLAG_IMMUTABLE)
                 val alarmClockInfo = AlarmManager.AlarmClockInfo(timeInMillis, mainPendingIntent)
                 alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
-                Log.d("ReservationVM", "Alarma programada como Reloj para: $timeInMillis")
             } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-                }
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
             }
         } catch (e: SecurityException) {
-            Log.e("ReservationVM", "Error de seguridad al programar alarma: ${e.message}")
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
         }
     }

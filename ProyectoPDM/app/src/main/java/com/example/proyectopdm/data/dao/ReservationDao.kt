@@ -7,8 +7,11 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReservationDao {
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReservation(reservation: Reservation)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReservations(reservations: List<Reservation>)
 
     @Transaction
     @Query("SELECT * FROM reservations WHERE userCarnet = :carnet")

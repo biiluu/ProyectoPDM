@@ -35,8 +35,9 @@ fun ReservasScreen(
 ) {
     val listaReservasWithRoom by viewModel.getUserReservationsWithRoomFlow(carnet).collectAsState(initial = emptyList())
     
-    // Ejecutar limpieza de inasistencias al entrar
+    // Sincronización con la API y limpieza de inasistencias al entrar
     LaunchedEffect(Unit) {
+        viewModel.syncUserReservations(carnet)
         viewModel.checkAndCancelOverdueReservations(carnet)
     }
 
@@ -143,7 +144,6 @@ fun ReservaCard(
             
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
-                    // Lógica inteligente para mostrar el nombre y nivel sin redundancias
                     val displayName = if (room.name.contains("Nivel", ignoreCase = true)) {
                         room.name
                     } else {
